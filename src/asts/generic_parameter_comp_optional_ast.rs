@@ -1,5 +1,6 @@
 pub struct GenericParameterCompOptionalAst {
     pub pos: usize,
+    pub tok_cmp: TokenAst,
     pub name: TypeAst,
     pub tok_colon: TokenAst,
     pub type_: TypeAst,
@@ -10,6 +11,7 @@ pub struct GenericParameterCompOptionalAst {
 impl GenericParameterCompOptionalAst {
     pub fn new(
         pos: usize,
+        tok_cmp: TokenAst,
         name: TypeAst,
         tok_colon: TokenAst,
         type_: TypeAst,
@@ -18,6 +20,7 @@ impl GenericParameterCompOptionalAst {
     ) -> Self {
         Self {
             pos,
+            tok_cmp,
             name,
             tok_colon,
             type_,

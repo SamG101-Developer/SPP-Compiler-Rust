@@ -1,9 +1,9 @@
-pub struct GenericCompArgumentUnnamedAst {
+pub struct GenericArgumentCompUnnamedAst {
     pub pos: usize,
     pub value: ExpressionAst,
 }
 
-impl GenericCompArgumentUnnamedAst {
+impl GenericArgumentCompUnnamedAst {
     pub fn new(pos: usize, value: ExpressionAst) -> Self {
         Self { pos, value }
     }
