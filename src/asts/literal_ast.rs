@@ -6,7 +6,7 @@ use crate::asts::type_ast::TypeAst;
 pub enum LiteralAst {
     Boolean {
         pos: usize,
-        value: TokenAst,
+        value: bool,
     },
     Integer {
         pos: usize,

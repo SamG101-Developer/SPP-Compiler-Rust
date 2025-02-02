@@ -1,6 +1,5 @@
 use crate::asts::annotation_ast::AnnotationAst;
 use crate::asts::assignment_statement_ast::AssignmentStatementAst;
-use crate::asts::binary_expression_ast::BinaryExpressionAst;
 use crate::asts::case_expression_ast::CaseExpressionAst;
 use crate::asts::case_expression_branch_ast::CaseExpressionBranchAst;
 use crate::asts::class_attribute_ast::ClassAttributeAst;
@@ -99,38 +98,57 @@ use crate::lexer::token::{Keywords, TokenStream, TokenType};
 use crate::parser::parser_error::SyntaxError;
 use crate::parser::parser_rule_handler::{ParserRuleHandler, SingleParserRuleHandler};
 use SPP_Compiler_Rust::parser_rule;
-
+use std::rc::Rc;
+use std::cell::RefCell;
+use crate::asts::ast::ToBinaryExpression;
 
 #[derive(Debug, Clone)]
 pub struct Parser {
     pub tokens: TokenStream,
     pub index: usize,
+    token_len: usize,
+    error: SyntaxError,
 }
 
 impl Parser {
-    fn current_pos(mut self: &mut Self) -> usize {
+    fn current_pos(&self) -> usize {
         self.index
+    }
+
+    fn store_error(&mut self, pos: usize, message: String) {
+        if pos > self.error.pos {
+            self.error.expected_tokens.clear();
+            self.error.pos = pos;
+            self.error.message = message;
+        }
     }
 }
 
 
 impl Parser {
     #[parser_rule]
-    fn parse_module_prototype<'a>(mut self: &mut Self) -> SingleParserRuleHandler<'a, ModulePrototypeAst> {
+    fn parse_root(self: &'static Rc<Self>) -> SingleParserRuleHandler<ModulePrototypeAst> {
+        let p1 = self.parse_module_prototype().parse_once()?;
+        let p2 = self.parse_eof().parse_once()?;
+        Ok(p1)
+    }
+
+    #[parser_rule]
+    fn parse_module_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<ModulePrototypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_module_implementation().parse_once()?;
         Ok(ModulePrototypeAst::new(c1, p1))
     }
 
     #[parser_rule]
-    fn parse_module_implementation(mut self: &mut Self) -> SingleParserRuleHandler<ModuleImplementationAst> {
+    fn parse_module_implementation(self: &'static Rc<Self>) -> SingleParserRuleHandler<ModuleImplementationAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_module_member().parse_zero_or_more(Box::new(self.parse_token_no_token()));
         Ok(ModuleImplementationAst::new(c1, p1))
     }
 
     #[parser_rule]
-    fn parse_module_member(mut self: &mut Self) -> SingleParserRuleHandler<ModuleMemberAst> {
+    fn parse_module_member(self: &'static Rc<Self>) -> SingleParserRuleHandler<ModuleMemberAst> {
         let p1 = self.parse_function_prototype().enum_wrapper(Box::new(ModuleMemberAst::Function));
         let p2 = self.parse_class_prototype().enum_wrapper(Box::new(ModuleMemberAst::Class));
         let p3 = self.parse_sup_prototype_extension().enum_wrapper(Box::new(ModuleMemberAst::SupExtension));
@@ -142,7 +160,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_class_prototype(mut self: &mut Self) -> SingleParserRuleHandler<ClassPrototypeAst> {
+    fn parse_class_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<ClassPrototypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let p2 = self.parse_keyword(Keywords::Cls).parse_once()?;
@@ -154,7 +172,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_class_implementation(mut self: &mut Self) -> SingleParserRuleHandler<ClassImplementationAst> {
+    fn parse_class_implementation(self: &'static Rc<Self>) -> SingleParserRuleHandler<ClassImplementationAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_curly_brace().parse_once()?;
         let p2 = self.parse_class_member().parse_zero_or_more(Box::new(self.parse_token_no_token()));
@@ -163,13 +181,13 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_class_member(mut self: &mut Self) -> SingleParserRuleHandler<ClassMemberAst> {
+    fn parse_class_member(self: &'static Rc<Self>) -> SingleParserRuleHandler<ClassMemberAst> {
         let p1 = self.parse_class_attribute().parse_once()?;
         return Ok(ClassMemberAst::Attr(p1));
     }
 
     #[parser_rule]
-    fn parse_class_attribute(mut self: &mut Self) -> SingleParserRuleHandler<ClassAttributeAst> {
+    fn parse_class_attribute(self: &'static Rc<Self>) -> SingleParserRuleHandler<ClassAttributeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let p2 = self.parse_identifier().parse_once()?;
@@ -179,7 +197,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_sup_prototype_functions(mut self: &mut Self) -> SingleParserRuleHandler<SupPrototypeFunctionsAst> {
+    fn parse_sup_prototype_functions(self: &'static Rc<Self>) -> SingleParserRuleHandler<SupPrototypeFunctionsAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Sup).parse_once()?;
         let p2 = self.parse_generic_parameters().parse_optional();
@@ -190,7 +208,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_sup_prototype_extension(mut self: &mut Self) -> SingleParserRuleHandler<SupPrototypeExtensionAst> {
+    fn parse_sup_prototype_extension(self: &'static Rc<Self>) -> SingleParserRuleHandler<SupPrototypeExtensionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Sup).parse_once()?;
         let p2 = self.parse_generic_parameters().parse_optional();
@@ -203,7 +221,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_sup_implementation(mut self: &mut Self) -> SingleParserRuleHandler<SupImplementationAst> {
+    fn parse_sup_implementation(self: &'static Rc<Self>) -> SingleParserRuleHandler<SupImplementationAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_curly_brace().parse_once()?;
         let p2 = self.parse_sup_member().parse_zero_or_more(Box::new(self.parse_token_no_token()));
@@ -212,7 +230,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_sup_member(mut self: &mut Self) -> SingleParserRuleHandler<SupMemberAst> {
+    fn parse_sup_member(self: &'static Rc<Self>) -> SingleParserRuleHandler<SupMemberAst> {
         let p1 = self.parse_sup_method_prototype().enum_wrapper(Box::new(SupMemberAst::Method));
         let p2 = self.parse_sup_use_statement().enum_wrapper(Box::new(SupMemberAst::Typedef));
         let p3 = p1.or(p2).parse_once()?;
@@ -220,13 +238,13 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_sup_method_prototype(mut self: &mut Self) -> SingleParserRuleHandler<FunctionPrototypeAst> {
+    fn parse_sup_method_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionPrototypeAst> {
         let p1 = self.parse_function_prototype().parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_sup_use_statement(mut self: &mut Self) -> SingleParserRuleHandler<SupUseStatementAst> {
+    fn parse_sup_use_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<SupUseStatementAst> {
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let mut p2 = self.parse_use_statement().parse_once()?;
         p2.annotations = p1;
@@ -234,7 +252,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_prototype(mut self: &mut Self) -> SingleParserRuleHandler<FunctionPrototypeAst> {
+    fn parse_function_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionPrototypeAst> {
         let p1 = self.parse_subroutine_prototype().enum_wrapper(Box::new(FunctionPrototypeAst::Subroutine));
         let p2 = self.parse_coroutine_prototype().enum_wrapper(Box::new(FunctionPrototypeAst::Coroutine));
         let p3 = p1.or(p2).parse_once()?;
@@ -242,7 +260,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_subroutine_prototype(mut self: &mut Self) -> SingleParserRuleHandler<SubroutinePrototypeAst> {
+    fn parse_subroutine_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<SubroutinePrototypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let p2 = self.parse_keyword(Keywords::Fun).parse_once()?;
@@ -257,7 +275,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_coroutine_prototype(mut self: &mut Self) -> SingleParserRuleHandler<CoroutinePrototypeAst> {
+    fn parse_coroutine_prototype(self: &'static Rc<Self>) -> SingleParserRuleHandler<CoroutinePrototypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let p2 = self.parse_keyword(Keywords::Cor).parse_once()?;
@@ -272,7 +290,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_implementation(mut self: &mut Self) -> SingleParserRuleHandler<FunctionImplementationAst> {
+    fn parse_function_implementation(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionImplementationAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkLeftCurlyBrace).parse_once()?;
         let p2 = self.parse_function_member().parse_zero_or_more(Box::new(self.parse_token_no_token()));
@@ -281,13 +299,13 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_member(mut self: &mut Self) -> SingleParserRuleHandler<FunctionMemberAst> {
+    fn parse_function_member(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionMemberAst> {
         let p1 = self.parse_statement().parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_function_call_arguments(mut self: &mut Self) -> SingleParserRuleHandler<FunctionCallArgumentGroupAst> {
+    fn parse_function_call_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionCallArgumentGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_function_call_argument().parse_zero_or_more(Box::new(self.parse_token_comma()));
@@ -296,7 +314,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_call_argument(mut self: &mut Self) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
+    fn parse_function_call_argument(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
         let p1 = self.parse_function_call_argument_named();
         let p2 = self.parse_function_call_argument_unnamed();
         let p3 = p1.or(p2).parse_once()?;
@@ -304,7 +322,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_call_argument_unnamed(mut self: &mut Self) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
+    fn parse_function_call_argument_unnamed(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_convention().parse_once()?;
         let p2 = self.parse_token_double_dot().parse_optional();
@@ -313,7 +331,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_call_argument_named(mut self: &mut Self) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
+    fn parse_function_call_argument_named(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionCallArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -323,7 +341,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameters(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterGroupAst> {
+    fn parse_function_parameters(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_function_parameter().parse_zero_or_more(Box::new(self.parse_token_comma()));
@@ -332,7 +350,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameter(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterAst> {
+    fn parse_function_parameter(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterAst> {
         let p1 = self.parse_function_parameter_variadic();
         let p2 = self.parse_function_parameter_optional();
         let p3 = self.parse_function_parameter_required();
@@ -342,7 +360,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameter_self(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterAst> {
+    fn parse_function_parameter_self(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
         let p2 = self.parse_convention().parse_once()?;
@@ -351,7 +369,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameter_required(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterAst> {
+    fn parse_function_parameter_required(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_local_variable().parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
@@ -361,7 +379,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameter_optional(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterAst> {
+    fn parse_function_parameter_optional(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_local_variable().parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
@@ -373,7 +391,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_function_parameter_variadic(mut self: &mut Self) -> SingleParserRuleHandler<FunctionParameterAst> {
+    fn parse_function_parameter_variadic(self: &'static Rc<Self>) -> SingleParserRuleHandler<FunctionParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_dot().parse_once()?;
         let p2 = self.parse_local_variable().parse_once()?;
@@ -384,7 +402,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_arguments(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentGroupAst> {
+    fn parse_generic_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_generic_argument().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -393,7 +411,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_argument(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentAst> {
+    fn parse_generic_argument(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentAst> {
         let p1 = self.parse_generic_type_argument_named();
         let p2 = self.parse_generic_type_argument_unnamed();
         let p3 = self.parse_generic_comp_argument_named();
@@ -403,7 +421,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_type_argument_named(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentAst> {
+    fn parse_generic_type_argument_named(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_upper_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -412,14 +430,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_type_argument_unnamed(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentAst> {
+    fn parse_generic_type_argument_unnamed(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type().parse_once()?;
         return Ok(GenericArgumentAst::new_type_unnamed(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_generic_comp_argument_named(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentAst> {
+    fn parse_generic_comp_argument_named(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -428,14 +446,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_comp_argument_unnamed(mut self: &mut Self) -> SingleParserRuleHandler<GenericArgumentAst> {
+    fn parse_generic_comp_argument_unnamed(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_global_constant_value().parse_once()?;
         return Ok(GenericArgumentAst::new_comp_unnamed(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_generic_parameters(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterGroupAst> {
+    fn parse_generic_parameters(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_generic_parameter().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -444,7 +462,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_parameter(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_parameter(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let p1 = self.parse_generic_comp_parameter_variadic();
         let p2 = self.parse_generic_comp_parameter_optional();
         let p3 = self.parse_generic_comp_parameter_required();
@@ -456,7 +474,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_type_parameter_required(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_type_parameter_required(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_upper_identifier().parse_once()?;
         let p2 = self.parse_generic_inline_constraints().parse_optional();
@@ -464,7 +482,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_type_parameter_optional(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_type_parameter_optional(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_upper_identifier().parse_once()?;
         let p2 = self.parse_generic_inline_constraints().parse_optional();
@@ -474,7 +492,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_type_parameter_variadic(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_type_parameter_variadic(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_dot().parse_once()?;
         let p2 = self.parse_upper_identifier().parse_once()?;
@@ -483,7 +501,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_comp_parameter_required(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_comp_parameter_required(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Cmp).parse_once()?;
         let p2 = self.parse_identifier().parse_once()?;
@@ -493,7 +511,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_comp_parameter_optional(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_comp_parameter_optional(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Cmp).parse_once()?;
         let p2 = self.parse_identifier().parse_once()?;
@@ -505,7 +523,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_comp_parameter_variadic(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterAst> {
+    fn parse_generic_comp_parameter_variadic(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Cmp).parse_once()?;
         let p2 = self.parse_token_double_dot().parse_once()?;
@@ -516,7 +534,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_generic_inline_constraints(mut self: &mut Self) -> SingleParserRuleHandler<GenericParameterConstraintsAst> {
+    fn parse_generic_inline_constraints(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericParameterConstraintsAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
         let p2 = self.parse_type().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -524,7 +542,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_where_block(mut self: &mut Self) -> SingleParserRuleHandler<WhereBlockAst> {
+    fn parse_where_block(self: &'static Rc<Self>) -> SingleParserRuleHandler<WhereBlockAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Where).parse_once()?;
         let p2 = self.parse_where_block_constraints_group().parse_once()?;
@@ -532,7 +550,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_where_block_constraints_group(mut self: &mut Self) -> SingleParserRuleHandler<WhereConstraintsGroupAst> {
+    fn parse_where_block_constraints_group(self: &'static Rc<Self>) -> SingleParserRuleHandler<WhereConstraintsGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_where_block_constraints().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -541,7 +559,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_where_block_constraints(mut self: &mut Self) -> SingleParserRuleHandler<WhereConstraintsAst> {
+    fn parse_where_block_constraints(self: &'static Rc<Self>) -> SingleParserRuleHandler<WhereConstraintsAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p2 = self.parse_token_colon().parse_once()?;
@@ -550,7 +568,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_annotation(mut self: &mut Self) -> SingleParserRuleHandler<AnnotationAst> {
+    fn parse_annotation(self: &'static Rc<Self>) -> SingleParserRuleHandler<AnnotationAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkAt).parse_once()?;
         let p2 = self.parse_identifier().parse_once()?;
@@ -558,70 +576,71 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_expression(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         let p1 = self.parse_binary_expression_precedence_level_1().parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n_rhs<'a>(mut self: &mut Self, op: fn() -> SingleParserRuleHandler<'a, TokenAst>, rhs: fn() -> SingleParserRuleHandler<'a, ExpressionAst>) -> SingleParserRuleHandler<'a, (TokenAst, ExpressionAst)> {
-        let p1 = op().parse_once()?;
-        let p2 = rhs().parse_once()?;
+    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut op: SingleParserRuleHandler<TokenAst>, mut rhs: SingleParserRuleHandler<T>) -> SingleParserRuleHandler<(TokenAst, T)> {
+        let p1 = op.parse_once()?;
+        let p2 = rhs.parse_once()?;
         return Ok((p1, p2));
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n<'a>(mut self: &mut Self, lhs: fn() -> SingleParserRuleHandler<'a, ExpressionAst>, op: fn() -> SingleParserRuleHandler<'a, TokenAst>, rhs: fn() -> SingleParserRuleHandler<'a, ExpressionAst>) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut lhs: SingleParserRuleHandler<ExpressionAst>, op: SingleParserRuleHandler<TokenAst>, rhs: SingleParserRuleHandler<T>) -> SingleParserRuleHandler<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = lhs().parse_once()?;
+        let p1 = lhs.parse_once()?;
         let p2 = self.parse_binary_expression_precedence_level_n_rhs(op, rhs).parse_optional();
-        return Ok(if let Some(p2) = p2 { ExpressionAst::Binary(BinaryExpressionAst::new(c1, Box::from(p1), p2.0, Box::new(p2.1))) } else { p1 });
+
+        return Ok(if let Some(p2) = p2 { T::to_binary_expression(c1, p1, p2.0, p2.1) } else { p1 });
     }
 
-    fn parse_binary_expression_precedence_level_1(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_1(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_binary_expression_precedence_level_2(),
-            || self.parse_binary_op_precedence_level_1(),
-            || self.parse_binary_expression_precedence_level_1())
+            self.parse_binary_expression_precedence_level_2(),
+            self.parse_binary_op_precedence_level_1(),
+            self.parse_binary_expression_precedence_level_1())
     }
 
-    fn parse_binary_expression_precedence_level_2(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_2(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_binary_expression_precedence_level_3(),
-            || self.parse_binary_op_precedence_level_2(),
-            || self.parse_binary_expression_precedence_level_2())
+            self.parse_binary_expression_precedence_level_3(),
+            self.parse_binary_op_precedence_level_2(),
+            self.parse_binary_expression_precedence_level_2())
     }
 
-    fn parse_binary_expression_precedence_level_3(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_3(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_binary_expression_precedence_level_4(),
-            || self.parse_binary_op_precedence_level_3(),
-            || self.parse_pattern_group_destructure())
+            self.parse_binary_expression_precedence_level_4(),
+            self.parse_binary_op_precedence_level_3(),
+            self.parse_pattern_group_destructure())
     }
 
-    fn parse_binary_expression_precedence_level_4(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_4(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_binary_expression_precedence_level_5(),
-            || self.parse_binary_op_precedence_level_4(),
-            || self.parse_binary_expression_precedence_level_4())
+            self.parse_binary_expression_precedence_level_5(),
+            self.parse_binary_op_precedence_level_4(),
+            self.parse_binary_expression_precedence_level_4())
     }
 
-    fn parse_binary_expression_precedence_level_5(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_5(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_binary_expression_precedence_level_6(),
-            || self.parse_binary_op_precedence_level_5(),
-            || self.parse_binary_expression_precedence_level_5())
+            self.parse_binary_expression_precedence_level_6(),
+            self.parse_binary_op_precedence_level_5(),
+            self.parse_binary_expression_precedence_level_5())
     }
 
-    fn parse_binary_expression_precedence_level_6(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_6(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            || self.parse_unary_expression(),
-            || self.parse_binary_op_precedence_level_6(),
-            || self.parse_binary_expression_precedence_level_6())
+            self.parse_unary_expression(),
+            self.parse_binary_op_precedence_level_6(),
+            self.parse_binary_expression_precedence_level_6())
     }
 
     #[parser_rule]
-    fn parse_unary_expression(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_unary_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_unary_op().parse_zero_or_more(Box::new(self.parse_token_no_token()));
         let p2 = self.parse_postfix_expression().parse_once()?;
@@ -629,7 +648,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_expression(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_postfix_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_primary_expression().parse_once()?;
         let p2 = self.parse_postfix_op().parse_zero_or_more(Box::new(self.parse_token_no_token()));
@@ -637,7 +656,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_primary_expression(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_primary_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         let p1 = self.parse_literal().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p2 = self.parse_object_initializer().enum_wrapper(Box::new(PrimaryExpressionAst::ObjectInitializer)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p4 = self.parse_parenthesized_expression().enum_wrapper(Box::new(PrimaryExpressionAst::Parenthesized)).enum_wrapper(Box::new(ExpressionAst::Primary));
@@ -655,7 +674,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_parenthesized_expression(mut self: &mut Self) -> SingleParserRuleHandler<ParenthesizedExpressionAst> {
+    fn parse_parenthesized_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<ParenthesizedExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_expression().parse_once()?;
@@ -664,14 +683,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_self_keyword(mut self: &mut Self) -> SingleParserRuleHandler<IdentifierAst> {
+    fn parse_self_keyword(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::SelfVal).parse_once()?;
         return Ok(IdentifierAst::new(c1, p1.metadata));
     }
 
     #[parser_rule]
-    fn parse_case_expression(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionAst> {
+    fn parse_case_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionAst> {
         let p1 = self.parse_case_expression_patterns();
         let p2 = self.parse_case_expression_simple();
         let p3 = p1.or(p2).parse_once()?;
@@ -679,7 +698,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_case_expression_patterns(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionAst> {
+    fn parse_case_expression_patterns(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Case).parse_once()?;
         let p2 = self.parse_expression().parse_once()?;
@@ -689,17 +708,17 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_case_expression_simple(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionAst> {
+    fn parse_case_expression_simple(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Case).parse_once()?;
         let p2 = self.parse_expression().parse_once()?;
         let p3 = self.parse_inner_scope().parse_once()?;
         let p4 = self.parse_case_expression_branch_simple().parse_zero_or_more(Box::new(self.parse_token_no_token()));
-        return Ok(CaseExpressionAst::from_simple(c1, p1, p2, p3, p4));
+        return Ok(CaseExpressionAst::new_from_simple(c1, p1, Box::new(p2), p3, p4));
     }
 
     #[parser_rule]
-    fn parse_loop_expression(mut self: &mut Self) -> SingleParserRuleHandler<LoopExpressionAst> {
+    fn parse_loop_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Loop).parse_once()?;
         let p2 = self.parse_loop_expression_condition().parse_once()?;
@@ -709,7 +728,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_loop_expression_condition(mut self: &mut Self) -> SingleParserRuleHandler<LoopConditionAst> {
+    fn parse_loop_expression_condition(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopConditionAst> {
         let p1 = self.parse_loop_expression_condition_iterable();
         let p2 = self.parse_loop_expression_condition_boolean();
         let p3 = p1.or(p2).parse_once()?;
@@ -717,14 +736,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_loop_expression_condition_boolean(mut self: &mut Self) -> SingleParserRuleHandler<LoopConditionAst> {
+    fn parse_loop_expression_condition_boolean(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopConditionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_expression().parse_once()?;
         return Ok(LoopConditionAst::new_boolean(c1, Box::new(p1)));
     }
 
     #[parser_rule]
-    fn parse_loop_expression_condition_iterable(mut self: &mut Self) -> SingleParserRuleHandler<LoopConditionAst> {
+    fn parse_loop_expression_condition_iterable(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopConditionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_local_variable().parse_once()?;
         let p2 = self.parse_keyword(Keywords::In).parse_once()?;
@@ -733,7 +752,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_loop_else_statement(mut self: &mut Self) -> SingleParserRuleHandler<LoopElseStatementAst> {
+    fn parse_loop_else_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopElseStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Else).parse_once()?;
         let p2 = self.parse_inner_scope().parse_once()?;
@@ -741,7 +760,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_gen_expression(mut self: &mut Self) -> SingleParserRuleHandler<GenExpressionAst> {
+    fn parse_gen_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenExpressionAst> {
         let p1 = self.parse_gen_expression_unroll();
         let p2 = self.parse_gen_expression_normal();
         let p3 = p1.or(p2).parse_once()?;
@@ -749,7 +768,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_gen_expression_normal(mut self: &mut Self) -> SingleParserRuleHandler<GenExpressionAst> {
+    fn parse_gen_expression_normal(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenExpressionAst> {
         let p1 = self.parse_gen_expression_normal_with_expression();
         let p2 = self.parse_gen_expression_normal_no_expression();
         let p3 = p1.or(p2).parse_once()?;
@@ -757,14 +776,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_gen_expression_normal_no_expression(mut self: &mut Self) -> SingleParserRuleHandler<GenExpressionAst> {
+    fn parse_gen_expression_normal_no_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Gen).parse_once()?;
         return Ok(GenExpressionAst::new(c1, p1, None, ConventionAst::Mov{pos: c1}, None));
     }
 
     #[parser_rule]
-    fn parse_gen_expression_normal_with_expression(mut self: &mut Self) -> SingleParserRuleHandler<GenExpressionAst> {
+    fn parse_gen_expression_normal_with_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Gen).parse_once()?;
         let p2 = self.parse_convention().parse_once()?;
@@ -773,7 +792,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_gen_expression_unroll(mut self: &mut Self) -> SingleParserRuleHandler<GenExpressionAst> {
+    fn parse_gen_expression_unroll(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Gen).parse_once()?;
         let p2 = self.parse_keyword(Keywords::With).parse_once()?;
@@ -782,7 +801,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_with_expression(mut self: &mut Self) -> SingleParserRuleHandler<WithExpressionAst> {
+    fn parse_with_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<WithExpressionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::With).parse_once()?;
         let p2 = self.parse_with_expression_lhs_alias().parse_optional();
@@ -792,7 +811,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_with_expression_lhs_alias(mut self: &mut Self) -> SingleParserRuleHandler<WithExpressionAliasAst> {
+    fn parse_with_expression_lhs_alias(self: &'static Rc<Self>) -> SingleParserRuleHandler<WithExpressionAliasAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_local_variable().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -800,7 +819,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_ret_statement(mut self: &mut Self) -> SingleParserRuleHandler<RetStatementAst> {
+    fn parse_ret_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<RetStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Ret).parse_once()?;
         let p2 = self.parse_expression().parse_optional();
@@ -808,7 +827,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_exit_statement(mut self: &mut Self) -> SingleParserRuleHandler<LoopControlFlowStatementAst> {
+    fn parse_exit_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopControlFlowStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Exit).parse_one_or_more(Box::new(self.parse_token_no_token()))?;
         let p2 = self.parse_exit_statement_final_action().parse_optional();
@@ -816,7 +835,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_exit_statement_final_action(mut self: &mut Self) -> SingleParserRuleHandler<LoopControlFlowStatementFinalPartAst> {
+    fn parse_exit_statement_final_action(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopControlFlowStatementFinalPartAst> {
         let p1 = self.parse_keyword(Keywords::Skip).enum_wrapper(Box::new(LoopControlFlowStatementFinalPartAst::Skip));
         let p2 = self.parse_expression().enum_wrapper(Box::new(LoopControlFlowStatementFinalPartAst::Expression));
         let p3 = p1.or(p2).parse_once()?;
@@ -824,14 +843,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_skip_statement(mut self: &mut Self) -> SingleParserRuleHandler<LoopControlFlowStatementAst> {
+    fn parse_skip_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<LoopControlFlowStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Skip).parse_once()?;
         return Ok(LoopControlFlowStatementAst::new(c1, vec![], Some(LoopControlFlowStatementFinalPartAst::Skip(p1))));
     }
 
     #[parser_rule]
-    fn parse_pin_statement(mut self: &mut Self) -> SingleParserRuleHandler<PinStatementAst> {
+    fn parse_pin_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<PinStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Pin).parse_once()?;
         let p2 = self.parse_expression().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -839,7 +858,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_rel_statement(mut self: &mut Self) -> SingleParserRuleHandler<RelStatementAst> {
+    fn parse_rel_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<RelStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Rel).parse_once()?;
         let p2 = self.parse_expression().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -847,7 +866,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_inner_scope(mut self: &mut Self) -> SingleParserRuleHandler<InnerScopeAst> {
+    fn parse_inner_scope(self: &'static Rc<Self>) -> SingleParserRuleHandler<InnerScopeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkLeftCurlyBrace).parse_once()?;
         let p2 = self.parse_statement().parse_zero_or_more(Box::new(self.parse_token_no_token()));
@@ -856,7 +875,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_statement(mut self: &mut Self) -> SingleParserRuleHandler<StatementAst> {
+    fn parse_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<StatementAst> {
         let p1 = self.parse_use_statement().enum_wrapper(Box::new(StatementAst::Use));
         let p2 = self.parse_let_statement().enum_wrapper(Box::new(StatementAst::Let));
         let p3 = self.parse_ret_statement().enum_wrapper(Box::new(StatementAst::Ret));
@@ -871,7 +890,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_use_statement(mut self: &mut Self) -> SingleParserRuleHandler<UseStatementAst> {
+    fn parse_global_use_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<UseStatementAst> {
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let mut p2 = self.parse_use_statement().parse_once()?;
         p2.annotations = p1;
@@ -879,7 +898,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_use_statement(mut self: &mut Self) -> SingleParserRuleHandler<UseStatementAst> {
+    fn parse_use_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<UseStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Use).parse_once()?;
         let p2 = self.parse_upper_identifier().parse_once()?;
@@ -890,7 +909,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_constant(mut self: &mut Self) -> SingleParserRuleHandler<GlobalConstantAst> {
+    fn parse_global_constant(self: &'static Rc<Self>) -> SingleParserRuleHandler<GlobalConstantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_annotation().parse_zero_or_more(Box::new(self.parse_token_newline()));
         let p2 = self.parse_keyword(Keywords::Cmp).parse_once()?;
@@ -903,7 +922,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_let_statement(mut self: &mut Self) -> SingleParserRuleHandler<LetStatementAst> {
+    fn parse_let_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<LetStatementAst> {
         let p1 = self.parse_let_statement_initialized();
         let p2 = self.parse_let_statement_uninitialized();
         let p3 = p1.or(p2).parse_once()?;
@@ -911,7 +930,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_let_statement_initialized(mut self: &mut Self) -> SingleParserRuleHandler<LetStatementAst> {
+    fn parse_let_statement_initialized(self: &'static Rc<Self>) -> SingleParserRuleHandler<LetStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Let).parse_once()?;
         let p2 = self.parse_local_variable().parse_once()?;
@@ -921,7 +940,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_let_statement_uninitialized(mut self: &mut Self) -> SingleParserRuleHandler<LetStatementAst> {
+    fn parse_let_statement_uninitialized(self: &'static Rc<Self>) -> SingleParserRuleHandler<LetStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Let).parse_once()?;
         let p2 = self.parse_local_variable().parse_once()?;
@@ -931,7 +950,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableAst> {
+    fn parse_local_variable(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableAst> {
         let p1 = self.parse_local_variable_destructure_array().enum_wrapper(Box::new(LocalVariableAst::DestructureArray));
         let p2 = self.parse_local_variable_destructure_tuple().enum_wrapper(Box::new(LocalVariableAst::DestructureTuple));
         let p3 = self.parse_local_variable_destructure_object().enum_wrapper(Box::new(LocalVariableAst::DestructureObject));
@@ -941,14 +960,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_destructure_skip_argument(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableDestructureSkip1ArgumentAst> {
+    fn parse_local_variable_destructure_skip_argument(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableDestructureSkip1ArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_underscore().parse_once()?;
         return Ok(LocalVariableDestructureSkip1ArgumentAst::new(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_local_variable_destructure_skip_arguments(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableDestructureSkipNArgumentsAst> {
+    fn parse_local_variable_destructure_skip_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableDestructureSkipNArgumentsAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_dot().parse_once()?;
         let p2 = self.parse_local_variable_single_identifier().parse_optional();
@@ -956,7 +975,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_single_identifier(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableSingleIdentifierAst> {
+    fn parse_local_variable_single_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableSingleIdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
         let p2 = self.parse_identifier().parse_once()?;
@@ -965,7 +984,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_single_identifier_alias(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableSingleIdentifierAliasAst> {
+    fn parse_local_variable_single_identifier_alias(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableSingleIdentifierAliasAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::As).parse_once()?;
         let p2 = self.parse_identifier().parse_once()?;
@@ -973,7 +992,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_destructure_array(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableDestructureArrayAst> {
+    fn parse_local_variable_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableDestructureArrayAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_curly_brace().parse_once()?;
         let p2 = self.parse_local_variable_nested_for_destructure_array().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -982,7 +1001,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_destructure_tuple(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableDestructureTupleAst> {
+    fn parse_local_variable_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableDestructureTupleAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_local_variable_nested_for_destructure_tuple().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -991,7 +1010,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_destructure_object(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableDestructureObjectAst> {
+    fn parse_local_variable_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableDestructureObjectAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_single().parse_once()?;
         let p2 = self.parse_token_left_parenthesis().parse_once()?;
@@ -1001,7 +1020,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_attribute_binding(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableAttributeBindingAst> {
+    fn parse_local_variable_attribute_binding(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableAttributeBindingAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -1010,7 +1029,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_nested_for_destructure_array(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableNestedForDestructureArrayAst> {
+    fn parse_local_variable_nested_for_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableNestedForDestructureArrayAst> {
         let p1 = self.parse_local_variable_destructure_array().enum_wrapper(Box::new(LocalVariableNestedForDestructureArrayAst::DestructureArray));
         let p2 = self.parse_local_variable_destructure_tuple().enum_wrapper(Box::new(LocalVariableNestedForDestructureArrayAst::DestructureTuple));
         let p3 = self.parse_local_variable_destructure_object().enum_wrapper(Box::new(LocalVariableNestedForDestructureArrayAst::DestructureObject));
@@ -1022,7 +1041,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_nested_for_destructure_tuple(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableNestedForDestructureTupleAst> {
+    fn parse_local_variable_nested_for_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableNestedForDestructureTupleAst> {
         let p1 = self.parse_local_variable_destructure_array().enum_wrapper(Box::new(LocalVariableNestedForDestructureTupleAst::DestructureArray));
         let p2 = self.parse_local_variable_destructure_tuple().enum_wrapper(Box::new(LocalVariableNestedForDestructureTupleAst::DestructureTuple));
         let p3 = self.parse_local_variable_destructure_object().enum_wrapper(Box::new(LocalVariableNestedForDestructureTupleAst::DestructureObject));
@@ -1034,7 +1053,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_nested_for_destructure_object(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableNestedForDestructureObjectAst> {
+    fn parse_local_variable_nested_for_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableNestedForDestructureObjectAst> {
         let p1 = self.parse_local_variable_attribute_binding().enum_wrapper(Box::new(LocalVariableNestedForDestructureObjectAst::AttrBind));
         let p2 = self.parse_local_variable_single_identifier().enum_wrapper(Box::new(LocalVariableNestedForDestructureObjectAst::SingleIdentifier));
         let p3 = self.parse_local_variable_destructure_skip_arguments().enum_wrapper(Box::new(LocalVariableNestedForDestructureObjectAst::SkipNArgs));
@@ -1043,7 +1062,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_local_variable_nested_for_attribute_binding(mut self: &mut Self) -> SingleParserRuleHandler<LocalVariableNestedForAttributeBindingAst> {
+    fn parse_local_variable_nested_for_attribute_binding(self: &'static Rc<Self>) -> SingleParserRuleHandler<LocalVariableNestedForAttributeBindingAst> {
         let p1 = self.parse_local_variable_destructure_array().enum_wrapper(Box::new(LocalVariableNestedForAttributeBindingAst::DestructureArray));
         let p2 = self.parse_local_variable_destructure_tuple().enum_wrapper(Box::new(LocalVariableNestedForAttributeBindingAst::DestructureTuple));
         let p3 = self.parse_local_variable_destructure_object().enum_wrapper(Box::new(LocalVariableNestedForAttributeBindingAst::DestructureObject));
@@ -1053,7 +1072,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_assignment_statement(mut self: &mut Self) -> SingleParserRuleHandler<AssignmentStatementAst> {
+    fn parse_assignment_statement(self: &'static Rc<Self>) -> SingleParserRuleHandler<AssignmentStatementAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_expression().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -1062,7 +1081,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_case_expression_branch_simple(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_case_expression_branch_simple(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let p1 = self.parse_pattern_statement_flavour_else_case();
         let p2 = self.parse_pattern_statement_flavour_else();
         let p3 = p1.or(p2).parse_once()?;
@@ -1070,7 +1089,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_case_expression_branch(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_case_expression_branch(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let p1 = self.parse_pattern_statement_flavour_destructuring();
         let p2 = self.parse_pattern_statement_flavour_non_destructuring();
         let p3 = self.parse_pattern_statement_flavour_else_case();
@@ -1080,7 +1099,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_statement_flavour_destructuring(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_destructuring(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Is).parse_once()?;
         let p2 = self.parse_pattern_group_destructure().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -1090,7 +1109,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_statement_flavour_non_destructuring(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_non_destructuring(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_boolean_comparison_op().parse_once()?;
         let p2 = self.parse_pattern_variant_expression().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -1099,14 +1118,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_statement_flavour_else_case(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_else_case(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_pattern_variant_else_case().parse_once()?;
-        return Ok(CaseExpressionBranchAst::from_else_to_else_case(c1, p1));
+        return Ok(CaseExpressionBranchAst::new_from_else_to_else_case(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_pattern_statement_flavour_else(mut self: &mut Self) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_else(self: &'static Rc<Self>) -> SingleParserRuleHandler<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_pattern_variant_else().parse_once()?;
         let p2 = self.parse_inner_scope().parse_once()?;
@@ -1114,7 +1133,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_group_destructure(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_group_destructure(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let p1 = self.parse_pattern_variant_destructure_array().enum_wrapper(Box::new(PatternVariantAst::DestructureArray));
         let p2 = self.parse_pattern_variant_destructure_tuple().enum_wrapper(Box::new(PatternVariantAst::DestructureTuple));
         let p3 = self.parse_pattern_variant_destructure_object().enum_wrapper(Box::new(PatternVariantAst::DestructureObject));
@@ -1123,14 +1142,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_skip_argument(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantDestructureSkip1ArgumentAst> {
+    fn parse_pattern_variant_skip_argument(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantDestructureSkip1ArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_underscore().parse_once()?;
         return Ok(PatternVariantDestructureSkip1ArgumentAst::new(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_skip_arguments(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantDestructureSkipNArgumentsAst> {
+    fn parse_pattern_variant_skip_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantDestructureSkipNArgumentsAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_dot().parse_once()?;
         let p2 = self.parse_pattern_variant_single_identifier().parse_optional();
@@ -1138,7 +1157,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_single_identifier(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_single_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
         let p2 = self.parse_identifier().parse_once()?;
@@ -1147,7 +1166,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_tuple(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_pattern_variant_nested_for_destructure_tuple().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -1156,7 +1175,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_array(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_pattern_variant_nested_for_destructure_array().parse_one_or_more(Box::new(self.parse_token_comma()))?;
@@ -1165,7 +1184,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_object(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_single().parse_once()?;
         let p2 = self.parse_token_left_parenthesis().parse_once()?;
@@ -1175,7 +1194,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_attribute_binding(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAttributeBindingAst> {
+    fn parse_pattern_variant_attribute_binding(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAttributeBindingAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -1184,7 +1203,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_literal(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantLiteralAst> {
+    fn parse_pattern_variant_literal(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantLiteralAst> {
         let p1 = self.parse_literal_float().enum_wrapper(Box::new(PatternVariantLiteralAst::Float));
         let p2 = self.parse_literal_integer().enum_wrapper(Box::new(PatternVariantLiteralAst::Integer));
         let p3 = self.parse_literal_string().enum_wrapper(Box::new(PatternVariantLiteralAst::String));
@@ -1194,21 +1213,21 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_expression(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_expression(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_expression().parse_once()?;
         return Ok(PatternVariantAst::Expression(PatternVariantExpressionAst::new(c1, p1)));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_else(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_else(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Else).parse_once()?;
         return Ok(PatternVariantAst::Else(PatternVariantElseAst::new(c1, p1)));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_else_case(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_else_case(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Else).parse_once()?;
         let p2 = self.parse_case_expression().parse_once()?;
@@ -1216,7 +1235,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_nested_for_destructure_array(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantNestedForDestructureArrayAst> {
+    fn parse_pattern_variant_nested_for_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantNestedForDestructureArrayAst> {
         let p1 = self.parse_pattern_variant_destructure_array().enum_wrapper(Box::new(PatternVariantNestedForDestructureArrayAst::DestructureArray));
         let p2 = self.parse_pattern_variant_destructure_tuple().enum_wrapper(Box::new(PatternVariantNestedForDestructureArrayAst::DestructureTuple));
         let p3 = self.parse_pattern_variant_destructure_object().enum_wrapper(Box::new(PatternVariantNestedForDestructureArrayAst::DestructureObject));
@@ -1229,7 +1248,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_nested_for_destructure_tuple(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantNestedForDestructureTupleAst> {
+    fn parse_pattern_variant_nested_for_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantNestedForDestructureTupleAst> {
         let p1 = self.parse_pattern_variant_destructure_array().enum_wrapper(Box::new(PatternVariantNestedForDestructureTupleAst::DestructureArray));
         let p2 = self.parse_pattern_variant_destructure_tuple().enum_wrapper(Box::new(PatternVariantNestedForDestructureTupleAst::DestructureTuple));
         let p3 = self.parse_pattern_variant_destructure_object().enum_wrapper(Box::new(PatternVariantNestedForDestructureTupleAst::DestructureObject));
@@ -1242,7 +1261,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_nested_for_destructure_object(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantNestedForDestructureObjectAst> {
+    fn parse_pattern_variant_nested_for_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantNestedForDestructureObjectAst> {
         let p1 = self.parse_pattern_variant_attribute_binding().enum_wrapper(Box::new(PatternVariantNestedForDestructureObjectAst::AttrBind));
         let p2 = self.parse_pattern_variant_single_identifier().enum_wrapper(Box::new(PatternVariantNestedForDestructureObjectAst::SingleIdentifier));
         let p3 = self.parse_pattern_variant_skip_arguments().enum_wrapper(Box::new(PatternVariantNestedForDestructureObjectAst::SkipNArgs));
@@ -1251,7 +1270,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_nested_for_attribute_binding(mut self: &mut Self) -> SingleParserRuleHandler<PatternVariantNestedForAttributeBindingAst> {
+    fn parse_pattern_variant_nested_for_attribute_binding(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantNestedForAttributeBindingAst> {
         let p1 = self.parse_pattern_variant_destructure_array().enum_wrapper(Box::new(PatternVariantNestedForAttributeBindingAst::DestructureArray));
         let p2 = self.parse_pattern_variant_destructure_tuple().enum_wrapper(Box::new(PatternVariantNestedForAttributeBindingAst::DestructureTuple));
         let p3 = self.parse_pattern_variant_destructure_object().enum_wrapper(Box::new(PatternVariantNestedForAttributeBindingAst::DestructureObject));
@@ -1261,7 +1280,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_guard(mut self: &mut Self) -> SingleParserRuleHandler<PatternGuardAst> {
+    fn parse_pattern_guard(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternGuardAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::And).parse_once()?;
         let p2 = self.parse_expression().parse_once()?;
@@ -1269,25 +1288,25 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_1(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_1(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_keyword(Keywords::Or).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_2(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_2(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_keyword(Keywords::And).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_3(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_3(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_keyword(Keywords::Is).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_4(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_4(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_eq();
         let p2 = self.parse_token_ne();
         let p3 = self.parse_token_le();
@@ -1300,7 +1319,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_5(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_5(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_add_assign();
         let p2 = self.parse_token_sub_assign();
         let p3 = self.parse_token_add();
@@ -1310,7 +1329,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_binary_op_precedence_level_6(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_binary_op_precedence_level_6(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1  = self.parse_token_mul_assign();
         let p2  = self.parse_token_div_assign();
         let p3  = self.parse_token_rem_assign();
@@ -1326,7 +1345,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_boolean_comparison_op(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_boolean_comparison_op(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_eq();
         let p2 = self.parse_token_ne();
         let p3 = self.parse_token_le();
@@ -1338,20 +1357,20 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_unary_op(mut self: &mut Self) -> SingleParserRuleHandler<UnaryExpressionOperatorAst> {
+    fn parse_unary_op(self: &'static Rc<Self>) -> SingleParserRuleHandler<UnaryExpressionOperatorAst> {
         let p1 = self.parse_unary_op_async_call().parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_unary_op_async_call(mut self: &mut Self) -> SingleParserRuleHandler<UnaryExpressionOperatorAst> {
+    fn parse_unary_op_async_call(self: &'static Rc<Self>) -> SingleParserRuleHandler<UnaryExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Async).parse_once()?;
         return Ok(UnaryExpressionOperatorAst::Async(UnaryExpressionOperatorAsyncAst::new(c1, p1)));
     }
 
     #[parser_rule]
-    fn parse_postfix_op(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let p1 = self.parse_postfix_op_function_call();
         let p2 = self.parse_postfix_op_member_access();
         let p3 = self.parse_postfix_op_early_return();
@@ -1362,7 +1381,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_function_call(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_function_call(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_generic_arguments().parse_optional();
         let p2 = self.parse_function_call_arguments().parse_once()?;
@@ -1371,7 +1390,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_member_access(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_member_access(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let p1 = self.parse_postfix_op_member_access_runtime();
         let p2 = self.parse_postfix_op_member_access_static();
         let p3 = p1.or(p2).parse_once()?;
@@ -1379,7 +1398,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_member_access_runtime(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_member_access_runtime(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_dot().parse_once()?;
         let p2 = self.parse_identifier();
@@ -1389,7 +1408,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_member_access_static(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_member_access_static(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_colon().parse_once()?;
         let p2 = self.parse_identifier().parse_once()?;
@@ -1397,14 +1416,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_early_return(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_early_return(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_question_mark().parse_once()?;
         return Ok(PostfixExpressionOperatorAst::EarlyReturn(PostfixExpressionOperatorEarlyReturnAst::new(c1, p1)));
     }
 
     #[parser_rule]
-    fn parse_postfix_op_not_keyword(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_not_keyword(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_dot().parse_once()?;
         let p2 = self.parse_keyword(Keywords::Not).parse_once()?;
@@ -1412,7 +1431,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_postfix_op_step_keyword(mut self: &mut Self) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_step_keyword(self: &'static Rc<Self>) -> SingleParserRuleHandler<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
         let p2 = self.parse_keyword(Keywords::Step).parse_once()?;
@@ -1420,7 +1439,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_convention(mut self: &mut Self) -> SingleParserRuleHandler<ConventionAst> {
+    fn parse_convention(self: &'static Rc<Self>) -> SingleParserRuleHandler<ConventionAst> {
         let p1 = self.parse_convention_mut();
         let p2 = self.parse_convention_ref();
         let p3 = self.parse_convention_mov();
@@ -1429,13 +1448,13 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_convention_mov(mut self: &mut Self) -> SingleParserRuleHandler<ConventionAst> {
+    fn parse_convention_mov(self: &'static Rc<Self>) -> SingleParserRuleHandler<ConventionAst> {
         let c1 = self.current_pos();
         return Ok(ConventionAst::new_mov(c1));
     }
 
     #[parser_rule]
-    fn parse_convention_mut(mut self: &mut Self) -> SingleParserRuleHandler<ConventionAst> {
+    fn parse_convention_mut(self: &'static Rc<Self>) -> SingleParserRuleHandler<ConventionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_borrow().parse_once()?;
         let p2 = self.parse_keyword(Keywords::Mut).parse_once()?;
@@ -1443,14 +1462,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_convention_ref(mut self: &mut Self) -> SingleParserRuleHandler<ConventionAst> {
+    fn parse_convention_ref(self: &'static Rc<Self>) -> SingleParserRuleHandler<ConventionAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_borrow().parse_once()?;
         return Ok(ConventionAst::new_ref(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_object_initializer(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerAst> {
+    fn parse_object_initializer(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_single().parse_once()?;
         let p2 = self.parse_object_initializer_arguments().parse_once()?;
@@ -1458,7 +1477,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_object_initializer_arguments(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentGroupAst> {
+    fn parse_object_initializer_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_object_initializer_argument().parse_zero_or_more(Box::new(self.parse_token_comma()));
@@ -1467,7 +1486,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_object_initializer_argument(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
+    fn parse_object_initializer_argument(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
         let p1 = self.parse_object_initializer_argument_named();
         let p2 = self.parse_object_initializer_argument_unnamed();
         let p3 = p1.or(p2).parse_once()?;
@@ -1475,14 +1494,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_object_initializer_argument_unnamed(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
+    fn parse_object_initializer_argument_unnamed(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_double_dot().parse_optional();
         let p2 = self.parse_identifier().parse_once()?;
         return Ok(ObjectInitializerArgumentAst::new_unnamed(c1, p1, p2));
     }
     #[parser_rule]
-    fn parse_object_initializer_argument_named(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
+    fn parse_object_initializer_argument_named(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -1491,7 +1510,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let p1 = self.parse_type_optional();
         let p2 = self.parse_type_variant();
         let p3 = self.parse_type_tuple();
@@ -1501,7 +1520,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_optional(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_optional(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_question_mark().parse_once()?;
         let p2 = self.parse_type().parse_once()?;
@@ -1509,7 +1528,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_single(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_single(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let p1 = self.parse_type_single_with_namespace();
         let p2 = self.parse_type_single_with_self();
         let p3 = self.parse_type_single_without_namespace_or_self();
@@ -1518,7 +1537,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_single_with_namespace(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_single_with_namespace(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_one_or_more(Box::new(self.parse_token_double_colon()))?;
         let p2 = self.parse_token_double_colon().parse_once()?;
@@ -1527,7 +1546,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_single_with_self(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_single_with_self(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_self_type_keyword().parse_once()?;
         let p2 = self.parse_types_after_self().parse_optional().unwrap_or_default();
@@ -1535,28 +1554,28 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_types_after_self(mut self: &mut Self) -> SingleParserRuleHandler<Vec<GenericIdentifierAst>> {
+    fn parse_types_after_self(self: &'static Rc<Self>) -> SingleParserRuleHandler<Vec<GenericIdentifierAst>> {
         let p1 = self.parse_token_double_colon().parse_once()?;
         let p2 = self.parse_generic_identifier().parse_zero_or_more(Box::new(self.parse_token_double_colon()));
         return Ok(p2);
     }
 
     #[parser_rule]
-    fn parse_type_single_without_namespace_or_self(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_single_without_namespace_or_self(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_generic_identifier().parse_one_or_more(Box::new(self.parse_token_double_colon()))?;
         return Ok(TypeAst::new(c1, vec![], p1));
     }
 
     #[parser_rule]
-    fn parse_self_type_keyword(mut self: &mut Self) -> SingleParserRuleHandler<GenericIdentifierAst> {
+    fn parse_self_type_keyword(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericIdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::SelfType).parse_once()?;
         return Ok(GenericIdentifierAst::new(c1, "Self".to_string(), None));
     }
 
     #[parser_rule]
-    fn parse_type_tuple(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_type().parse_zero_or_more(Box::new(self.parse_token_comma()));
@@ -1565,7 +1584,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_non_union(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_non_union(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let p1 = self.parse_type_single();
         let p2 = self.parse_type_tuple();
         let p3 = self.parse_type_optional();
@@ -1574,35 +1593,35 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_type_variant(mut self: &mut Self) -> SingleParserRuleHandler<TypeAst> {
+    fn parse_type_variant(self: &'static Rc<Self>) -> SingleParserRuleHandler<TypeAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_non_union().parse_two_or_more(Box::new(self.parse_token_union()))?;
         return Ok(TypeVariantAst::new(c1, p1).to_type());
     }
 
     #[parser_rule]
-    fn parse_identifier(mut self: &mut Self) -> SingleParserRuleHandler<IdentifierAst> {
+    fn parse_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_lexeme_identifier().parse_once()?;
         return Ok(IdentifierAst::new(c1, p1.metadata));
     }
 
     #[parser_rule]
-    fn parse_numeric_identifier(mut self: &mut Self) -> SingleParserRuleHandler<IdentifierAst> {
+    fn parse_numeric_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_lexeme_dec_integer().parse_once()?;
         return Ok(IdentifierAst::new(c1, p1.metadata));
     }
 
     #[parser_rule]
-    fn parse_upper_identifier(mut self: &mut Self) -> SingleParserRuleHandler<IdentifierAst> {
+    fn parse_upper_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_lexeme_upper_identifier().parse_once()?;
         return Ok(IdentifierAst::new(c1, p1.token.token_metadata));
     }
 
     #[parser_rule]
-    fn parse_generic_identifier(mut self: &mut Self) -> SingleParserRuleHandler<GenericIdentifierAst> {
+    fn parse_generic_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<GenericIdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_upper_identifier().parse_once()?;
         let p2 = self.parse_generic_arguments().parse_optional();
@@ -1610,7 +1629,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_float();
         let p2 = self.parse_literal_integer();
         let p3 = self.parse_literal_string();
@@ -1622,13 +1641,13 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_float(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_float(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_float_b10().parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_literal_integer(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_integer(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_integer_b10();
         let p2 = self.parse_literal_integer_b02();
         let p3 = self.parse_literal_integer_b16();
@@ -1637,14 +1656,14 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_string(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_string(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_lexeme_string().parse_once()?;
         return Ok(LiteralAst::new_string(c1, p1));
     }
 
     #[parser_rule]
-    fn parse_literal_tuple<T>(mut self: &mut Self, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple<T>(self: &'static Rc<Self>, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_tuple_0_items();
         let p2 = self.parse_literal_tuple_1_items(Box::new(item.parse_once()));
         let p3 = self.parse_literal_tuple_n_items(Box::new(item.parse_once()));
@@ -1653,7 +1672,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_array<T>(mut self: &mut Self, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array<T>(self: &'static Rc<Self>, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_array_0_items();
         let p2 = self.parse_literal_array_n_items(Box::new(item.parse_once()));
         let p3 = p1.or(p2).parse_once()?;
@@ -1661,7 +1680,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_boolean(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_boolean(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::True);
         let p2 = self.parse_keyword(Keywords::False);
@@ -1670,53 +1689,53 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_float_b10(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_float_b10(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_numeric_prefix_op().parse_optional();
         let p2 = self.parse_lexeme_dec_integer().parse_once()?;
         let p3 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
         let p4 = self.parse_lexeme_dec_integer().parse_once()?;
         let p5 = self.parse_float_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_float(c1, p1, p2, p3, p4, p5.and_then(TypeAst::from)));
+        return Ok(LiteralAst::new_float(c1, p1, p2, p3, p4, p5.and_then(|x| Some(TypeAst::from(x)))));
     }
 
     #[parser_rule]
-    fn parse_literal_integer_b10(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_integer_b10(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_numeric_prefix_op().parse_optional();
         let p2 = self.parse_lexeme_dec_integer().parse_once()?;
         let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(TypeAst::from)));
+        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))));
     }
 
     #[parser_rule]
-    fn parse_literal_integer_b02(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_integer_b02(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_numeric_prefix_op().parse_optional();
         let p2 = self.parse_lexeme_bin_integer().parse_once()?;
         let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(TypeAst::from)));
+        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))));
     }
 
     #[parser_rule]
-    fn parse_literal_integer_b16(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_integer_b16(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_numeric_prefix_op().parse_optional();
         let p2 = self.parse_lexeme_hex_integer().parse_once()?;
         let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(TypeAst::from)));
+        return Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))));
     }
 
     #[parser_rule]
-    fn parse_numeric_prefix_op(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_numeric_prefix_op(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_sub();
         let p2 = self.parse_token_add();
-        let p3 = p1.or(p2).parse_optional();
+        let p3 = p1.or(p2).parse_once()?;
         return Ok(p3);
     }
 
     #[parser_rule]
-    fn parse_integer_postfix_type(mut self: &mut Self) -> SingleParserRuleHandler<TokenType> {
+    fn parse_integer_postfix_type(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let p1 = self.parse_token_primitive(TokenType::TkUnderscore).parse_once()?;
         let p2 = self.parse_characters("i8");
         let p3 = self.parse_characters("i16");
@@ -1730,12 +1749,12 @@ impl Parser {
         let p11 = self.parse_characters("u64");
         let p12 = self.parse_characters("u128");
         let p13 = self.parse_characters("u256");
-        let p14 = (p2 | p3 | p4 | p5 | p6 | p7 | p8 | p9 | p10 | p11 | p12 | p13).parse_once()?;
-        return p14;
+        let p14 = p2.or(p3).or(p4).or(p5).or(p6).or(p7).or(p8).or(p9).or(p10).or(p11).or(p12).or(p13).parse_once()?;
+        return Ok(IdentifierAst::new(p14.pos, p14.metadata));
     }
 
     #[parser_rule]
-    fn parse_float_postfix_type(mut self: &mut Self) -> SingleParserRuleHandler<TokenType> {
+    fn parse_float_postfix_type(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let p1 = self.parse_token_primitive(TokenType::TkUnderscore).parse_once()?;
         let p2 = self.parse_characters("f8");
         let p3 = self.parse_characters("f16");
@@ -1743,12 +1762,12 @@ impl Parser {
         let p5 = self.parse_characters("f64");
         let p6 = self.parse_characters("f128");
         let p7 = self.parse_characters("f256");
-        let p8 = (p2 | p3 | p4 | p5 | p6 | p7).parse_once()?;
-        return p8;
+        let p8 = p2.or(p3).or(p4).or(p5).or(p6).or(p7).parse_once()?;
+        return Ok(IdentifierAst::new(p8.pos, p8.metadata));
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_0_items(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_0_items(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_token_right_parenthesis().parse_once()?;
@@ -1756,7 +1775,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_1_items<T>(mut self: &mut Self, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_1_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = item().parse_once()?;
@@ -1766,7 +1785,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_n_items<T>(mut self: &mut Self, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_n_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = item().parse_two_or_more(TokenType::TkComma);
@@ -1775,7 +1794,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_array_0_items(mut self: &mut Self) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array_0_items(self: &'static Rc<Self>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_type().parse_once()?;
@@ -1786,7 +1805,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_array_n_items<T>(mut self: &mut Self, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array_n_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = item().parse_one_or_more(TokenType::TkComma);
@@ -1795,7 +1814,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_constant_value(mut self: &mut Self) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_global_constant_value(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         let p1 = self.parse_literal_float().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p2 = self.parse_literal_integer().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p3 = self.parse_literal_string().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
@@ -1809,7 +1828,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_object_initializer(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerAst> {
+    fn parse_global_object_initializer(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_single().parse_once()?;
         let p2 = self.parse_global_object_initializer_arguments().parse_once()?;
@@ -1817,7 +1836,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_object_initializer_arguments(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentGroupAst> {
+    fn parse_global_object_initializer_arguments(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentGroupAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_global_object_initializer_argument_named().parse_zero_or_more(Box::new(self.parse_token_comma()));
@@ -1826,7 +1845,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_global_object_initializer_argument_named(mut self: &mut Self) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
+    fn parse_global_object_initializer_argument_named(self: &'static Rc<Self>) -> SingleParserRuleHandler<ObjectInitializerArgumentAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_identifier().parse_once()?;
         let p2 = self.parse_token_assign().parse_once()?;
@@ -1835,7 +1854,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_keyword(mut self: &mut Self, keyword: Keywords) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_keyword(self: &'static Rc<Self>, keyword: Keywords) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         for c in keyword.to_string().chars() {
             let p1 = self.parse_character(c);
@@ -1844,151 +1863,151 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_token_left_curly_brace(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_left_curly_brace(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLeftCurlyBrace).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_right_curly_brace(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_right_curly_brace(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkRightCurlyBrace).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_left_parenthesis(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_left_parenthesis(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLeftParenthesis).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_right_parenthesis(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_right_parenthesis(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkRightParenthesis).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_left_square_bracket(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_left_square_bracket(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLeftSquareBracket).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_right_square_bracket(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_right_square_bracket(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkRightSquareBracket).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_dot(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_dot(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_double_colon(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_double_colon(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_comma(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_comma(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkComma).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_colon(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_colon(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkColon).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_newline(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_newline(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkNewLine).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_rightward_arrow(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_rightward_arrow(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkMinusSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkGreaterThanSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_double_dot(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_double_dot(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_question_mark(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_question_mark(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkQuestionMark).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_borrow(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_borrow(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkAmpersand).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_union(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_union(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkVerticalBar).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_eq(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_eq(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_ne(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_ne(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkExclamationMark).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_le(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_le(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLessThanSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_ge(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_ge(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkGreaterThanSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_lt(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_lt(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLessThanSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_gt(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_gt(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkGreaterThanSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_ss(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_ss(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkLessThanSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         let p3 = self.parse_token_primitive(TokenType::TkGreaterThanSign).parse_once()?;
@@ -1996,54 +2015,54 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_token_add_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_add_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPlusSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_sub_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_sub_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkMinusSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_add(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_add(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPlusSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_sub(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_sub(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkMinusSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_mul_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_mul_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_div_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_div_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkForwardSlash).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_rem_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_rem_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_mod_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_mod_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         let p3 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
@@ -2051,7 +2070,7 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_token_exp_assign(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_exp_assign(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         let p3 = self.parse_token_primitive(TokenType::TkEqualsSign).parse_once()?;
@@ -2059,108 +2078,137 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_token_mul(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_mul(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_div(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_div(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkForwardSlash).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_rem(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_rem(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_mod(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_mod(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkPercentSign).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_exp(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_exp(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         let p2 = self.parse_token_primitive(TokenType::TkAsterisk).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_underscore(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_underscore(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkUnderscore).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_speech_mark(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_speech_mark(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::TkSpeechMark).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_no_token(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_token_no_token(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
-        return Ok(TokenAst::new(c1, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
     }
 
     #[parser_rule]
-    fn parse_lexeme_dec_integer(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_lexeme_dec_integer(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkNumber(num)).parse_once()?;
         }
-        return Ok(TokenAst::new(c1, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
     }
 
     #[parser_rule]
-    fn parse_lexeme_string(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_lexeme_string(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         self.parse_token_speech_mark().parse_once()?;
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkCharacter(string)).parse_once()?;
         }
         self.parse_token_speech_mark().parse_once()?;
-        return Ok(TokenAst::new(c1, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
     }
 
     #[parser_rule]
-    fn parse_lexeme_identifier(mut self: &mut Self) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_lexeme_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkCharacter(string)).parse_once()?;
             identifier.push(string);
         }
-        return Ok(TokenAst::new(c1, identifier));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
     }
 
     #[parser_rule]
-    fn parse_characters(mut self: &mut Self, characters: &str) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_characters(self: &'static Rc<Self>, characters: &str) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         for c in characters.chars() {
             let p1 = self.parse_character(c);
         }
-        return Ok(TokenAst::new(c1, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
     }
 
     #[parser_rule]
-    fn parse_character(mut self: &mut Self, character: char) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_character(self: &'static Rc<Self>, character: char) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkCharacter(character)).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_eof(mut self: &mut Self, token_type: TokenType) -> SingleParserRuleHandler<TokenAst> {
+    fn parse_eof(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let p1 = self.parse_token_primitive(TokenType::EndOfFile).parse_once()?;
         return Ok(p1);
     }
 
     #[parser_rule]
-    fn parse_token_primitive(mut self: &mut Self, token_type: TokenType) -> SingleParserRuleHandler<TokenAst> {}
+    fn parse_token_primitive(mut self: &'static Rc<Self>, token_type: TokenType) -> SingleParserRuleHandler<TokenAst> {
+        if self.index > self.token_len {
+            let new_error = format!("Expected token {:?} but found end of file", token_type);
+            self.store_error(self.current_pos(), new_error);
+            return Err(self.error.clone());
+        }
+
+        if token_type != TokenType::TkNewLine {
+            while self.tokens[self.index] == TokenType::TkNewLine {
+                self.index += 1;
+            }
+        }
+
+        if self.tokens[self.index] != token_type {
+            if self.error.pos == self.index {
+                self.error.expected_tokens.insert(token_type);
+                return Err(self.error.clone());
+            }
+
+            let new_error = format!("Expected £, got '{:?}'", self.tokens[self.index]);
+            if self.store_error(self.index, new_error) {
+                self.error.expected_tokens.insert(token_type);
+            }
+            return Err(self.error.clone());
+        }
+
+        let r = TokenAst::new(self.current_pos(), self.tokens[self.index].clone(), "".to_string());
+        self.index += 1;
+        return Ok(r);
+    }
 }

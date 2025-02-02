@@ -1,24 +1,25 @@
-use crate::asts::ast::Ast;
+use std::cell::RefCell;
+use std::rc::Rc;
 use crate::parser::parser::Parser;
 use crate::parser::parser_error::SyntaxError;
 
 type ParserRule<T> = Box<dyn FnMut() -> Result<T, SyntaxError>>;
 
-pub struct SingleParserRuleHandler<'a, T> {
+pub struct SingleParserRuleHandler<T> {
     pub rule: ParserRule<T>,
-    pub parser: Box<&'a mut Parser>,
+    pub parser: RefCell<Rc<Parser>>,
 }
 
-pub struct AlternativeParserRuleHandler<'a, T> {
+pub struct AlternativeParserRuleHandler<T> {
     pub rules: Vec<Box<dyn ParserRuleHandler<T>>>,
-    pub parser: Box<&'a mut Parser>,
+    pub parser: RefCell<Rc<Parser>>,
 }
 
-impl <'a, T> SingleParserRuleHandler<'a, T> {
-    pub fn enum_wrapper<U, Arg>(self, rule: Box<fn(Arg) -> U>) -> SingleParserRuleHandler<'a, U> {
+impl <T> SingleParserRuleHandler<T> {
+    pub fn enum_wrapper<U, Arg>(self, rule: Box<fn(Arg) -> U>) -> SingleParserRuleHandler<U> {
         SingleParserRuleHandler {
             rule,
-            parser: Box::new(*self.parser),
+            parser: self.parser,
         }
     }
 }
@@ -91,25 +92,25 @@ pub trait ParserRuleHandler<T> {
         Ok(result)
     }
 
-    fn or<'a>(
+    fn or(
         self,
-        other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'a, T>;
+        other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T>;
 }
 
-impl<'a, T> ParserRuleHandler<T> for SingleParserRuleHandler<'a, T> {
-    fn get_parser_index(&self) -> usize {
-        self.parser.index
+impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
+    fn get_parser_index(&mut self) -> usize {
+        self.parser.borrow_mut().index
     }
 
     fn set_parser_index(&mut self, index: usize) {
-        self.parser.index = index;
+        self.parser.borrow_mut().index = index;
     }
 
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
         self.rule()
     }
 
-    fn or<'b>(self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'b, T> {
+    fn or(self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T> {
         AlternativeParserRuleHandler {
             rules: vec![Box::new(self), Box::new(other)],
             parser: self.parser,
@@ -117,30 +118,30 @@ impl<'a, T> ParserRuleHandler<T> for SingleParserRuleHandler<'a, T> {
     }
 }
 
-impl<'a, T> ParserRuleHandler<T> for AlternativeParserRuleHandler<'a, T> {
-    fn get_parser_index(&self) -> usize {
-        self.parser.index
+impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
+    fn get_parser_index(&mut self) -> usize {
+        self.parser.borrow_mut().index
     }
 
     fn set_parser_index(&mut self, index: usize) {
-        self.parser.index = index;
+        self.parser.borrow_mut().index = index;
     }
 
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
         for rule in &mut self.rules {
-            let index = self.parser.index;
+            let index = self.parser.borrow_mut().index;
             let result = rule.parse_once();
 
             match result {
                 Ok(ast) => return Ok(ast),
-                Err(_) => self.parser.index = index,
+                Err(_) => self.parser.get_mut().index = index,
             }
         }
 
         Err(SyntaxError {})
     }
 
-    fn or<'b>(mut self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'b, T> {
+    fn or(mut self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T> {
         self.rules.push(Box::new(other));
         self
     }

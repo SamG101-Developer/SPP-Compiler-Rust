@@ -1,6 +1,11 @@
 use crate::asts::ast::Ast;
 use crate::asts::case_expression_branch_ast::CaseExpressionBranchAst;
 use crate::asts::expression_ast::ExpressionAst;
+use crate::asts::inner_scope_ast::InnerScopeAst;
+use crate::asts::literal_ast::LiteralAst;
+use crate::asts::pattern_variant_ast::PatternVariantAst;
+use crate::asts::pattern_variant_expression_ast::PatternVariantExpressionAst;
+use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
 pub struct CaseExpressionAst {
@@ -24,6 +29,19 @@ impl CaseExpressionAst {
             tok_case,
             condition,
             tok_of,
+            branches,
+        }
+    }
+
+    pub fn new_from_simple(pos: usize, tok_case: TokenAst, condition: Box<ExpressionAst>, inner_scope: InnerScopeAst, mut branches: Vec<CaseExpressionBranchAst>) -> Self {
+        let first_pattern = PatternVariantAst::Expression(PatternVariantExpressionAst::new(pos, ExpressionAst::Primary(PrimaryExpressionAst::Literal(LiteralAst::Boolean { pos, value: true }))));
+        let first_branch  = CaseExpressionBranchAst::new(pos, Some(TokenAst::new_from_pos(pos)), vec![first_pattern], None, inner_scope);
+        branches.insert(0, first_branch);
+        Self {
+            pos,
+            tok_case,
+            condition,
+            tok_of: TokenAst::new_from_pos(pos),
             branches,
         }
     }

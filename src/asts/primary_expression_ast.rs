@@ -3,6 +3,7 @@ use crate::asts::case_expression_ast::CaseExpressionAst;
 use crate::asts::gen_expression_ast::GenExpressionAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::inner_scope_ast::InnerScopeAst;
+use crate::asts::is_expression_ast::IsExpressionAst;
 use crate::asts::literal_ast::LiteralAst;
 use crate::asts::loop_expression_ast::LoopExpressionAst;
 use crate::asts::object_initializer::ObjectInitializerAst;
@@ -24,6 +25,7 @@ pub enum PrimaryExpressionAst {
     With(WithExpressionAst),
     Type(TypeAst),
     Fold(TokenAst),
+    Is(IsExpressionAst),
 }
 
 impl Ast for PrimaryExpressionAst {
@@ -34,13 +36,16 @@ impl Ast for PrimaryExpressionAst {
             PrimaryExpressionAst::SelfIdentifier(token) => token.get_pos(),
             PrimaryExpressionAst::Parenthesized(parenthesized) => parenthesized.get_pos(),
             PrimaryExpressionAst::Gen(gen) => gen.get_pos(),
-            PrimaryExpressionAst::ObjectInitializer(object_initializer) => object_initializer.get_pos(),
+            PrimaryExpressionAst::ObjectInitializer(object_initializer) => {
+                object_initializer.get_pos()
+            }
             PrimaryExpressionAst::InnerScope(inner_scope) => inner_scope.get_pos(),
             PrimaryExpressionAst::Case(case) => case.get_pos(),
             PrimaryExpressionAst::Loop(loop_) => loop_.get_pos(),
             PrimaryExpressionAst::With(with) => with.get_pos(),
             PrimaryExpressionAst::Type(type_) => type_.get_pos(),
             PrimaryExpressionAst::Fold(token) => token.get_pos(),
+            PrimaryExpressionAst::Is(is) => is.get_pos(),
         }
     }
 }

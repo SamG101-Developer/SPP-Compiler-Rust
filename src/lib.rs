@@ -14,7 +14,7 @@ pub fn parser_rule(_args: TokenStream, item: TokenStream) -> TokenStream {
     // Generate a new function that wraps the original logic
     let expanded = quote! {
         #fn_signature {
-            SingleParserRuleHandler{rule: Box::new(|| -> Result<_, SyntaxError> {#fn_body}), parser: Box::new(&mut self) }
+            SingleParserRuleHandler{rule: Box::new(|| -> Result<_, SyntaxError> {#fn_body}), parser: RefCell::new(Rc::clone(self)) }
         }
     };
 
