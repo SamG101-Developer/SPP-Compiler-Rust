@@ -1,3 +1,4 @@
+use crate::analyse::scopes::scope::Scope;
 use crate::asts::function_call_argument_group_ast::FunctionCallArgumentGroupAst;
 use crate::asts::function_prototype_ast::FunctionPrototypeAst;
 use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;

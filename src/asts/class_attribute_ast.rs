@@ -1,4 +1,8 @@
+use crate::asts::annotation_ast::AnnotationAst;
+use crate::asts::ast::Ast;
+use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
+use crate::asts::type_ast::TypeAst;
 
 pub struct ClassAttributeAst {
     pub pos: usize,
@@ -23,5 +27,11 @@ impl ClassAttributeAst {
             tok_colon,
             type_,
         }
+    }
+}
+
+impl Ast for ClassAttributeAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

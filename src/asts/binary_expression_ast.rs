@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl BinaryExpressionAst {
             operator,
             right,
         }
+    }
+}
+
+impl Ast for BinaryExpressionAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

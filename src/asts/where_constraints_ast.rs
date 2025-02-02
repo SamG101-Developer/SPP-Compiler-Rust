@@ -1,10 +1,11 @@
 use crate::asts::token_ast::TokenAst;
+use crate::asts::type_ast::TypeAst;
 
 pub struct WhereConstraintsAst {
     pub pos: usize,
     pub types: Vec<TypeAst>,
     pub tok_colon: TokenAst,
-    pub constraints: Vec<TypeAst>,
+    pub constraints: TypeAst,
 }
 
 impl WhereConstraintsAst {
@@ -12,7 +13,7 @@ impl WhereConstraintsAst {
         pos: usize,
         types: Vec<TypeAst>,
         tok_colon: TokenAst,
-        constraints: Vec<TypeAst>,
+        constraints: TypeAst,
     ) -> Self {
         Self {
             pos,

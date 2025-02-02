@@ -1,17 +1,26 @@
-use crate::lexer::token::TokenType;
+use crate::asts::ast::Ast;
 use crate::parser::parser::Parser;
 use crate::parser::parser_error::SyntaxError;
 
-type ParserRule<T> = dyn Fn() -> Result<T, SyntaxError>;
+type ParserRule<T> = Box<dyn FnMut() -> Result<T, SyntaxError>>;
 
-struct SingleParserRuleHandler<T> {
-    rule: ParserRule<T>,
-    parser: Box<Parser>,
+pub struct SingleParserRuleHandler<'a, T> {
+    pub rule: ParserRule<T>,
+    pub parser: Box<&'a mut Parser>,
 }
 
-struct AlternativeParserRuleHandler<T> {
-    rules: Vec<Box<dyn ParserRuleHandler<T>>>,
-    parser: Box<Parser>,
+pub struct AlternativeParserRuleHandler<'a, T> {
+    pub rules: Vec<Box<dyn ParserRuleHandler<T>>>,
+    pub parser: Box<&'a mut Parser>,
+}
+
+impl <'a, T> SingleParserRuleHandler<'a, T> {
+    pub fn enum_wrapper<U, Arg>(self, rule: Box<fn(Arg) -> U>) -> SingleParserRuleHandler<'a, U> {
+        SingleParserRuleHandler {
+            rule,
+            parser: Box::new(*self.parser),
+        }
+    }
 }
 
 pub trait ParserRuleHandler<T> {
@@ -36,8 +45,8 @@ pub trait ParserRuleHandler<T> {
 
     fn parse_zero_or_more<U>(
         &mut self,
-        mut separator: Box<dyn ParserRuleHandler<U>>,
-    ) -> Result<Vec<T>, SyntaxError> {
+        mut separator: Box<impl ParserRuleHandler<U>>,
+    ) -> Vec<T> {
         let mut result = vec![];
 
         loop {
@@ -49,25 +58,22 @@ pub trait ParserRuleHandler<T> {
                     result.push(ast);
                     let ast = separator.parse_optional();
                     if ast.is_none() {
-                        return Ok(result);
+                        return result;
                     }
                 }
-                Err(err) => {
+                Err(_) => {
                     self.set_parser_index(index);
-                    return if result.is_empty() {
-                        Err(err)
-                    } else {
-                        Ok(result)
-                    };
+                    return result;
                 }
             }
         }
     }
+
     fn parse_one_or_more<U>(
         &mut self,
-        separator: Box<dyn ParserRuleHandler<U>>,
+        separator: Box<impl ParserRuleHandler<U>>,
     ) -> Result<Vec<T>, SyntaxError> {
-        let result = self.parse_zero_or_more(separator)?;
+        let result = self.parse_zero_or_more(separator);
         if result.len() < 1 {
             return Err(SyntaxError {});
         }
@@ -76,17 +82,21 @@ pub trait ParserRuleHandler<T> {
 
     fn parse_two_or_more<U>(
         &mut self,
-        separator: Box<dyn ParserRuleHandler<U>>,
+        separator: Box<impl ParserRuleHandler<U>>,
     ) -> Result<Vec<T>, SyntaxError> {
-        let result = self.parse_zero_or_more(separator)?;
+        let result = self.parse_zero_or_more(separator);
         if result.len() < 2 {
             return Err(SyntaxError {});
         }
         Ok(result)
     }
+
+    fn or<'a>(
+        self,
+        other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'a, T>;
 }
 
-impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
+impl<'a, T> ParserRuleHandler<T> for SingleParserRuleHandler<'a, T> {
     fn get_parser_index(&self) -> usize {
         self.parser.index
     }
@@ -98,9 +108,16 @@ impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
         self.rule()
     }
+
+    fn or<'b>(self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'b, T> {
+        AlternativeParserRuleHandler {
+            rules: vec![Box::new(self), Box::new(other)],
+            parser: self.parser,
+        }
+    }
 }
 
-impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
+impl<'a, T> ParserRuleHandler<T> for AlternativeParserRuleHandler<'a, T> {
     fn get_parser_index(&self) -> usize {
         self.parser.index
     }
@@ -110,9 +127,9 @@ impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
     }
 
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
-        for rule in &self.rules {
+        for rule in &mut self.rules {
             let index = self.parser.index;
-            let result = rule();
+            let result = rule.parse_once();
 
             match result {
                 Ok(ast) => return Ok(ast),
@@ -122,30 +139,9 @@ impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
 
         Err(SyntaxError {})
     }
-}
 
-impl std::ops::BitOr for SingleParserRuleHandler<TokenType> {
-    type Output = AlternativeParserRuleHandler<TokenType>;
-
-    fn bitor(
-        self,
-        other: SingleParserRuleHandler<TokenType>,
-    ) -> AlternativeParserRuleHandler<TokenType> {
-        AlternativeParserRuleHandler {
-            rules: vec![Box::new(self), Box::new(other)],
-            parser: self.parser,
-        }
-    }
-}
-
-impl std::ops::BitOr for AlternativeParserRuleHandler<TokenType> {
-    type Output = AlternativeParserRuleHandler<TokenType>;
-
-    fn bitor(
-        mut self,
-        other: AlternativeParserRuleHandler<TokenType>,
-    ) -> AlternativeParserRuleHandler<TokenType> {
-        self.rules.extend(other.rules);
+    fn or<'b>(mut self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<'b, T> {
+        self.rules.push(Box::new(other));
         self
     }
 }

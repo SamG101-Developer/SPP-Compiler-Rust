@@ -1,3 +1,4 @@
+use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
 pub struct IdentifierAst {
@@ -11,14 +12,14 @@ impl IdentifierAst {
     }
 }
 
-impl From<TypeAst> for IdentifierAst {
-    fn from(type_: TypeAst) -> Self {
+impl From<&TypeAst> for IdentifierAst {
+    fn from(type_: &TypeAst) -> Self {
         IdentifierAst::from(type_.types.last())
     }
 }
 
-impl From<GenericIdentifierAst> for IdentifierAst {
-    fn from(value: GenericIdentifierAst) -> Self {
-        IdentifierAst::new(value.pos, value.value)
+impl From<&GenericIdentifierAst> for IdentifierAst {
+    fn from(value: &GenericIdentifierAst) -> Self {
+        IdentifierAst::new(value.pos, value.value.clone())
     }
 }

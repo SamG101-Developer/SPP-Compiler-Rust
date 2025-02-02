@@ -1,3 +1,7 @@
+use crate::asts::ast::Ast;
+use crate::asts::function_call_argument::FunctionCallArgumentAst;
+use crate::asts::token_ast::TokenAst;
+
 pub struct FunctionCallArgumentGroupAst {
     pub pos: usize,
     pub tok_paren_l: TokenAst,
@@ -18,5 +22,11 @@ impl FunctionCallArgumentGroupAst {
             arguments,
             tok_paren_r,
         }
+    }
+}
+
+impl Ast for FunctionCallArgumentGroupAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

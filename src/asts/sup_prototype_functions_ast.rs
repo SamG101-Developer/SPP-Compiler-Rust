@@ -1,20 +1,27 @@
+use crate::analyse::scopes::scope::Scope;
+use crate::asts::generic_parameter_group_ast::GenericParameterGroupAst;
+use crate::asts::sup_implementation_ast::SupImplementationAst;
+use crate::asts::token_ast::TokenAst;
+use crate::asts::type_ast::TypeAst;
+use crate::asts::where_block_ast::WhereBlockAst;
+
 pub struct SupPrototypeFunctionsAst {
     pos: usize,
     tok_sup: TokenAst,
-    generic_param_group: GenericParameterGroupAst,
+    generic_param_group: Option<GenericParameterGroupAst>,
     name: TypeAst,
-    where_block: WhereBlockAst,
+    where_block: Option<WhereBlockAst>,
     body: SupImplementationAst,
     scope_cls: Option<Scope>,
 }
 
 impl SupPrototypeFunctionsAst {
-    pub(crate) fn new(
+    pub fn new(
         pos: usize,
         tok_sup: TokenAst,
-        generic_param_group: GenericParameterGroupAst,
+        generic_param_group: Option<GenericParameterGroupAst>,
         name: TypeAst,
-        where_block: WhereBlockAst,
+        where_block: Option<WhereBlockAst>,
         body: SupImplementationAst,
     ) -> Self {
         Self {

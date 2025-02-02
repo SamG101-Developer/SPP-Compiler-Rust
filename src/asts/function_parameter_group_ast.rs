@@ -1,3 +1,7 @@
+use crate::asts::ast::Ast;
+use crate::asts::function_parameter_ast::FunctionParameterAst;
+use crate::asts::token_ast::TokenAst;
+
 pub struct FunctionParameterGroupAst {
     pub pos: usize,
     pub tok_paren_l: TokenAst,
@@ -18,5 +22,11 @@ impl FunctionParameterGroupAst {
             parameters,
             tok_paren_r,
         }
+    }
+}
+
+impl Ast for FunctionParameterGroupAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

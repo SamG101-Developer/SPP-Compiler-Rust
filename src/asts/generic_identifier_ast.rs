@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::type_ast::TypeAst;
@@ -22,18 +23,24 @@ impl GenericIdentifierAst {
     }
 }
 
-impl From<TypeAst> for GenericIdentifierAst {
-    fn from(type_: TypeAst) -> Self {
-        type_.types.last().clone().unwrap()
+impl From<&TypeAst> for GenericIdentifierAst {
+    fn from(type_: &TypeAst) -> Self {
+        type_.types.last().unwrap().clone().into()
     }
 }
 
-impl From<IdentifierAst> for GenericIdentifierAst {
-    fn from(identifier: IdentifierAst) -> Self {
+impl From<&IdentifierAst> for GenericIdentifierAst {
+    fn from(identifier: &IdentifierAst) -> Self {
         Self {
             pos: identifier.pos,
-            value: identifier.value,
+            value: identifier.value.clone(),
             generic_args_group: None,
         }
+    }
+}
+
+impl Ast for GenericIdentifierAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

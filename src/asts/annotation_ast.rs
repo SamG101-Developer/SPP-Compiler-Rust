@@ -1,3 +1,5 @@
+use crate::asts::ast::Ast;
+use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
 pub struct AnnotationAst {
@@ -9,5 +11,11 @@ pub struct AnnotationAst {
 impl AnnotationAst {
     pub fn new(pos: usize, tok_at: TokenAst, name: IdentifierAst) -> Self {
         Self { pos, tok_at, name }
+    }
+}
+
+impl Ast for AnnotationAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

@@ -1,3 +1,7 @@
+use crate::asts::ast::Ast;
+use crate::asts::function_member_ast::FunctionMemberAst;
+use crate::asts::token_ast::TokenAst;
+
 pub struct FunctionImplementationAst {
     pub pos: usize,
     pub tok_brace_l: TokenAst,
@@ -18,5 +22,11 @@ impl FunctionImplementationAst {
             members,
             tok_brace_r,
         }
+    }
+}
+
+impl Ast for FunctionImplementationAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

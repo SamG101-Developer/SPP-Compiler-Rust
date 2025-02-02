@@ -1,6 +1,9 @@
+#![feature(trait_alias)]
+
 mod lexer;
 mod parser;
 mod asts;
+mod analyse;
 
 fn main() {
     let code = std::fs::read_to_string("test_code/1.spp").unwrap();

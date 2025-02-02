@@ -1,11 +1,11 @@
 use super::token::{TokenStream, TokenType};
 
 pub struct Lexer {
-    pub(crate) code: String,
+    pub code: String,
 }
 
 impl Lexer {
-    pub fn lex(mut self) -> TokenStream {
+    pub fn lex(self) -> TokenStream {
         let mut tokens = vec![];
 
         for c in self.code.chars() {
@@ -13,13 +13,13 @@ impl Lexer {
                 c if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' => TokenType::TkCharacter(c),
                 c if '0' <= c && c <= '9' => TokenType::TkNumber(c),
                 '=' => TokenType::TkEqualsSign,
-                '+' => TokenType::TkPlus,
-                '-' => TokenType::TkHyphenMinus,
+                '+' => TokenType::TkPlusSign,
+                '-' => TokenType::TkMinusSign,
                 '*' => TokenType::TkAsterisk,
                 '/' => TokenType::TkForwardSlash,
-                '%' => TokenType::TkPercent,
+                '%' => TokenType::TkPercentSign,
                 '^' => TokenType::TkCaret,
-                '<' => TokenType::TkChevronL,
+                '<' => TokenType::TkLessThanSign,
                 '>' => TokenType::TkGreaterThanSign,
                 '(' => TokenType::TkLeftParenthesis,
                 ')' => TokenType::TkRightParenthesis,
@@ -43,6 +43,7 @@ impl Lexer {
             });
         }
 
+        tokens.push(TokenType::EndOfFile);
         tokens
     }
 }

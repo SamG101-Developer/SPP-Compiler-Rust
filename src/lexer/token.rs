@@ -1,16 +1,17 @@
-use std::iter::Map;
+use std::fmt::Display;
 
+#[derive(Debug, Clone)]
 pub enum TokenType {
     TkCharacter(char),
     TkNumber(char),
     TkEqualsSign,
-    TkPlus,
-    TkHyphenMinus,
+    TkPlusSign,
+    TkMinusSign,
     TkAsterisk,
     TkForwardSlash,
-    TkPercent,
+    TkPercentSign,
     TkCaret,
-    TkChevronL,
+    TkLessThanSign,
     TkGreaterThanSign,
     TkLeftParenthesis,
     TkRightParenthesis,
@@ -33,6 +34,8 @@ pub enum TokenType {
     TkUnknown(char),
     NoToken,
     Keyword,
+    EndOfFile,
+    TkExclamationMark,
 }
 
 pub enum Keywords {
@@ -44,26 +47,72 @@ pub enum Keywords {
     Mut,
     Cmp,
     Where,
-    SelfVal_,
+    SelfVal,
+    SelfType,
     Case,
     Of,
+    Loop,
+    In,
+    Else,
+    Gen,
+    With,
+    Ret,
+    Exit,
+    Skip,
+    Pin,
+    Rel,
+    Use,
+    Let,
+    Is,
+    As,
+    Or,
+    And,
+    Not,
+    Async,
+    Step,
+    True,
+    False,
 }
 
-pub static KEYWORD_STRINGS: Map<Keywords, &str> = [
-    (Keywords::Cls, "cls"),
-    (Keywords::Fun, "fun"),
-    (Keywords::Cor, "cor"),
-    (Keywords::Sup, "sup"),
-    (Keywords::Ext, "ext"),
-    (Keywords::Mut, "mut"),
-    (Keywords::Cmp, "cmp"),
-    (Keywords::Where, "where"),
-    (Keywords::SelfVal_, "self"),
-    (Keywords::Case, "case"),
-    (Keywords::Of, "of"),
-]
-.iter()
-.cloned()
-.collect();
+impl Display for Keywords {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Keywords::Cls => "cls".to_string(),
+            Keywords::Fun => "fun".to_string(),
+            Keywords::Cor => "cor".to_string(),
+            Keywords::Sup => "sup".to_string(),
+            Keywords::Ext => "ext".to_string(),
+            Keywords::Mut => "mut".to_string(),
+            Keywords::Cmp => "cmp".to_string(),
+            Keywords::Where => "where".to_string(),
+            Keywords::SelfVal => "self".to_string(),
+            Keywords::SelfType => "Self".to_string(),
+            Keywords::Case => "case".to_string(),
+            Keywords::Of => "of".to_string(),
+            Keywords::Loop => "loop".to_string(),
+            Keywords::In => "in".to_string(),
+            Keywords::Else => "else".to_string(),
+            Keywords::Gen => "gen".to_string(),
+            Keywords::With => "with".to_string(),
+            Keywords::Ret => "ret".to_string(),
+            Keywords::Exit => "exit".to_string(),
+            Keywords::Skip => "skip".to_string(),
+            Keywords::Pin => "pin".to_string(),
+            Keywords::Rel => "rel".to_string(),
+            Keywords::Use => "use".to_string(),
+            Keywords::Let => "let".to_string(),
+            Keywords::Is => "is".to_string(),
+            Keywords::As => "as".to_string(),
+            Keywords::Or => "or".to_string(),
+            Keywords::And => "and".to_string(),
+            Keywords::Not => "not".to_string(),
+            Keywords::Async => "async".to_string(),
+            Keywords::Step => "step".to_string(),
+            Keywords::True => "true".to_string(),
+            Keywords::False => "false".to_string(),
+        };
+        write!(f, "{}", str)
+    }
+}
 
 pub type TokenStream = Vec<TokenType>;

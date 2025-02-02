@@ -1,8 +1,12 @@
+use crate::asts::ast::Ast;
+use crate::asts::generic_argument_ast::GenericArgumentAst;
+use crate::asts::token_ast::TokenAst;
+
 pub struct GenericArgumentGroupAst {
-    pos: usize,
-    tok_bracket_l: TokenAst,
-    args: Vec<GenericArgumentAst>,
-    tok_bracket_r: TokenAst,
+    pub pos: usize,
+    pub tok_bracket_l: TokenAst,
+    pub args: Vec<GenericArgumentAst>,
+    pub tok_bracket_r: TokenAst,
 }
 
 impl GenericArgumentGroupAst {
@@ -18,5 +22,22 @@ impl GenericArgumentGroupAst {
             args: arguments,
             tok_bracket_r,
         }
+    }
+}
+
+impl Default for GenericArgumentGroupAst {
+    fn default() -> Self {
+        Self {
+            pos: 0,
+            tok_bracket_l: TokenAst::default(),
+            args: Vec::new(),
+            tok_bracket_r: TokenAst::default(),
+        }
+    }
+}
+
+impl Ast for GenericArgumentGroupAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }
