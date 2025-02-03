@@ -586,60 +586,60 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut op: Box<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>, mut rhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>) -> SingleParserRuleHandler<(TokenAst, T)> {
-        let p1 = op().parse_once()?;
-        let p2 = rhs().parse_once()?;
+    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, op: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>>, rhs: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>>) -> SingleParserRuleHandler<(TokenAst, T)> {
+        let p1 = op.borrow_mut()().parse_once()?;
+        let p2 = rhs.borrow_mut()().parse_once()?;
         return Ok((p1, p2));
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut lhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>, op: Box<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>, rhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, lhs: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>>, op: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>>, rhs: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>>) -> SingleParserRuleHandler<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = lhs().parse_once()?;
-        let p2 = self.parse_binary_expression_precedence_level_n_rhs(op, rhs).parse_optional();
+        let p1 = lhs.borrow_mut()().parse_once()?;
+        let p2 = self.parse_binary_expression_precedence_level_n_rhs(op.clone(), rhs.clone()).parse_optional();
         return Ok(if let Some(p2) = p2 { T::to_binary_expression(c1, p1, p2.0, p2.1) } else { p1 });
     }
 
     fn parse_binary_expression_precedence_level_1(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_binary_expression_precedence_level_2()),
-            Box::new(|| self.parse_binary_op_precedence_level_1()),
-            Box::new(|| self.parse_binary_expression_precedence_level_1()))
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_2())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_1())),
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_1())))
     }
 
     fn parse_binary_expression_precedence_level_2(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_binary_expression_precedence_level_3()),
-            Box::new(|| self.parse_binary_op_precedence_level_2()),
-            Box::new(|| self.parse_binary_expression_precedence_level_2()))
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_3())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_2())),
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_2())))
     }
 
     fn parse_binary_expression_precedence_level_3(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_binary_expression_precedence_level_4()),
-            Box::new(|| self.parse_binary_op_precedence_level_3()),
-            Box::new(|| self.parse_pattern_group_destructure()))
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_4())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_3())),
+            Rc::new(RefCell::new(|| self.parse_pattern_group_destructure())))
     }
 
     fn parse_binary_expression_precedence_level_4(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_binary_expression_precedence_level_5()),
-            Box::new(|| self.parse_binary_op_precedence_level_4()),
-            Box::new(|| self.parse_binary_expression_precedence_level_4()))
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_5())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_4())),
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_4())))
     }
 
     fn parse_binary_expression_precedence_level_5(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_binary_expression_precedence_level_6()),
-            Box::new(|| self.parse_binary_op_precedence_level_5()),
-            Box::new(|| self.parse_binary_expression_precedence_level_5()))
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_6())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_5())),
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_5())))
     }
 
     fn parse_binary_expression_precedence_level_6(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            Box::new(|| self.parse_unary_expression()),
-            Box::new(|| self.parse_binary_op_precedence_level_6()),
-            Box::new(|| self.parse_binary_expression_precedence_level_6()))
+            Rc::new(RefCell::new(|| self.parse_unary_expression())),
+            Rc::new(RefCell::new(|| self.parse_binary_op_precedence_level_6())),
+            Rc::new(RefCell::new(|| self.parse_binary_expression_precedence_level_6())))
     }
 
     #[parser_rule]
@@ -647,7 +647,7 @@ impl Parser {
         let c1 = self.current_pos();
         let p1 = self.parse_unary_op().parse_zero_or_more(Box::new(self.parse_token_no_token()));
         let p2 = self.parse_postfix_expression().parse_once()?;
-        return p1.into_iter().rev().fold(Ok(p2), |mut acc, x| Ok(ExpressionAst::Unary(UnaryExpressionAst::new(c1, x, Box::from(acc?)))));
+        return p1.into_iter().rev().fold(Ok(p2), |acc, x| Ok(ExpressionAst::Unary(UnaryExpressionAst::new(c1, x, Box::from(acc?)))));
     }
 
     #[parser_rule]
@@ -1160,40 +1160,40 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_single_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_single_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantSingleIdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
         let p2 = self.parse_identifier().parse_once()?;
         let p3 = self.parse_local_variable_single_identifier_alias().parse_optional();
-        return Ok(PatternVariantAst::SingleIdentifier(PatternVariantSingleIdentifierAst::new(c1, p1, p2, p3)));
+        return Ok(PatternVariantSingleIdentifierAst::new(c1, p1, p2, p3));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_tuple(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantDestructureTupleAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = self.parse_pattern_variant_nested_for_destructure_tuple().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(PatternVariantAst::DestructureTuple(PatternVariantDestructureTupleAst::new(c1, p1, p2, p3)));
+        return Ok(PatternVariantDestructureTupleAst::new(c1, p1, p2, p3));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_array(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantDestructureArrayAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
         let p2 = self.parse_pattern_variant_nested_for_destructure_array().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_square_bracket().parse_once()?;
-        return Ok(PatternVariantAst::DestructureArray(PatternVariantDestructureArrayAst::new(c1, p1, p2, p3)));
+        return Ok(PatternVariantDestructureArrayAst::new(c1, p1, p2, p3));
     }
 
     #[parser_rule]
-    fn parse_pattern_variant_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantAst> {
+    fn parse_pattern_variant_destructure_object(self: &'static Rc<Self>) -> SingleParserRuleHandler<PatternVariantDestructureObjectAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_type_single().parse_once()?;
         let p2 = self.parse_token_left_parenthesis().parse_once()?;
         let p3 = self.parse_pattern_variant_nested_for_destructure_object().parse_zero_or_more(Box::new(self.parse_token_comma()));
         let p4 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(PatternVariantAst::DestructureObject(PatternVariantDestructureObjectAst::new(c1, p1, p2, p3, p4)));
+        return Ok(PatternVariantDestructureObjectAst::new(c1, p1, p2, p3, p4));
     }
 
     #[parser_rule]
@@ -1636,8 +1636,8 @@ impl Parser {
         let p1 = self.parse_literal_float();
         let p2 = self.parse_literal_integer();
         let p3 = self.parse_literal_string();
-        let p4 = self.parse_literal_tuple(|| Box::new(self.parse_expression()));
-        let p5 = self.parse_literal_array(|| Box::new(self.parse_expression()));
+        let p4 = self.parse_literal_tuple(Rc::new(RefCell::new(|| self.parse_expression())));
+        let p5 = self.parse_literal_array(Rc::new(RefCell::new(|| self.parse_expression())));
         let p6 = self.parse_literal_boolean();
         let p7 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
         return Ok(p7);
@@ -1666,18 +1666,18 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple<T>(self: &'static Rc<Self>, item: Box<dyn FnMut() -> SingleParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple(self: &'static Rc<Self>, item: Rc<RefCell<dyn FnMut() -> SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_tuple_0_items();
-        let p2 = self.parse_literal_tuple_1_items(item);
-        let p3 = self.parse_literal_tuple_n_items(item);
+        let p2 = self.parse_literal_tuple_1_items(item.clone());
+        let p3 = self.parse_literal_tuple_n_items(item.clone());
         let p4 = p1.or(p2).or(p3).parse_once()?;
         return Ok(p4);
     }
 
     #[parser_rule]
-    fn parse_literal_array<T>(self: &'static Rc<Self>, item: Box<dyn FnMut() -> SingleParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array(self: &'static Rc<Self>, item: Rc<RefCell<dyn FnMut() -> SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_array_0_items();
-        let p2 = self.parse_literal_array_n_items(item);
+        let p2 = self.parse_literal_array_n_items(item.clone());
         let p3 = p1.or(p2).parse_once()?;
         return Ok(p3);
     }
@@ -1778,20 +1778,20 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_1_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_1_items(self: &'static Rc<Self>, item: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = item().parse_once()?;
+        let p2 = item.borrow_mut()().parse_once()?;
         let p3 = self.parse_token_comma().parse_once()?;
         let p4 = self.parse_token_right_parenthesis().parse_once()?;
         return Ok(LiteralAst::new_tuple(c1, p1, vec![p2], p4));
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_n_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_n_items(self: &'static Rc<Self>, item: Rc<RefCell<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = item().parse_two_or_more(Box::new(self.parse_token_comma()))?;
+        let p2 = item.borrow_mut()().parse_two_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_parenthesis().parse_once()?;
         return Ok(LiteralAst::new_tuple(c1, p1, p2, p3));
     }
@@ -1808,10 +1808,10 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_array_n_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut() -> SingleParserRuleHandler<ExpressionAst>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array_n_items(self: &'static Rc<Self>, item: Rc<RefCell<dyn FnMut() -> SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
-        let p2 = item().parse_one_or_more(Box::new(self.parse_token_comma()))?;
+        let p2 = item.borrow_mut()().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_square_bracket().parse_once()?;
         return Ok(LiteralAst::new_array_n(c1, p1, p2, p3));
     }
@@ -1821,10 +1821,10 @@ impl Parser {
         let p1 = self.parse_literal_float().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p2 = self.parse_literal_integer().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p3 = self.parse_literal_string().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p4 = self.parse_literal_tuple(|| Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p5 = self.parse_literal_array(|| Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
+        let p4 = self.parse_literal_tuple(Rc::new(RefCell::new(|| self.parse_global_constant_value()))).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
+        let p5 = self.parse_literal_array(Rc::new(RefCell::new(|| self.parse_global_constant_value()))).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p6 = self.parse_literal_boolean().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p7 = self.parse_global_object_initializer().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
+        let p7 = self.parse_global_object_initializer().enum_wrapper(Box::new(PrimaryExpressionAst::ObjectInitializer)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p8 = self.parse_identifier().enum_wrapper(Box::new(PrimaryExpressionAst::Identifier)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p9 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).or(p7).or(p8).parse_once()?;
         return Ok(p9);
@@ -2242,7 +2242,6 @@ impl Parser {
 
     #[parser_rule]
     fn parse_character(self: &'static Rc<Self>, character: char) -> SingleParserRuleHandler<TokenAst> {
-        let c1 = self.current_pos();
         let p1 = self.parse_token_primitive(TokenType::TkCharacter(character)).parse_once()?;
         return Ok(p1);
     }

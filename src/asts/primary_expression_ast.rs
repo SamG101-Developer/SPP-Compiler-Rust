@@ -15,7 +15,7 @@ use crate::asts::with_expression_ast::WithExpressionAst;
 pub enum PrimaryExpressionAst {
     Literal(LiteralAst),
     Identifier(IdentifierAst),
-    SelfIdentifier(TokenAst),
+    SelfIdentifier(IdentifierAst),
     Parenthesized(ParenthesizedExpressionAst),
     Gen(GenExpressionAst),
     ObjectInitializer(ObjectInitializerAst),

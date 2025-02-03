@@ -7,18 +7,18 @@ type ParserRule<T> = Box<dyn FnMut() -> Result<T, SyntaxError>>;
 
 pub struct SingleParserRuleHandler<T> {
     pub rule: ParserRule<T>,
-    pub parser: RefCell<Rc<Parser>>,
+    pub parser: Rc<RefCell<Parser>>,
 }
 
 pub struct AlternativeParserRuleHandler<T> {
-    pub rules: Vec<Box<dyn ParserRuleHandler<T>>>,
-    pub parser: RefCell<Rc<Parser>>,
+    pub rules: Vec<Rc<RefCell<SingleParserRuleHandler<T>>>>,
+    pub parser: Rc<RefCell<Parser>>,
 }
 
-impl<T> SingleParserRuleHandler<T> {
-    pub fn enum_wrapper<U, Arg>(self, rule: Box<fn(Arg) -> U>) -> SingleParserRuleHandler<U> {
+impl<T: 'static> SingleParserRuleHandler<T> {
+    pub fn enum_wrapper<U: 'static>(mut self, mut rule: Box<dyn FnMut(T) -> U>) -> SingleParserRuleHandler<U> {
         SingleParserRuleHandler {
-            rule,
+            rule: Box::new(move || { let arg = self.rule.as_mut()()?; Ok(rule(arg)) }),
             parser: self.parser,
         }
     }
@@ -108,13 +108,14 @@ impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
     }
 
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
-        self.rule()
+        self.rule.as_mut()()
     }
 
     fn or(self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T> {
+        let self_parser = Rc::clone(&self.parser);
         AlternativeParserRuleHandler {
-            rules: vec![Box::new(self), Box::new(other)],
-            parser: self.parser,
+            rules: vec![Rc::new(RefCell::new(self)), Rc::new(RefCell::new(other))],
+            parser: self_parser,
         }
     }
 }
@@ -131,11 +132,11 @@ impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
     fn parse_once(&mut self) -> Result<T, SyntaxError> {
         for rule in &mut self.rules {
             let index = self.parser.borrow_mut().index;
-            let result = rule.parse_once();
+            let result = rule.borrow_mut().parse_once();
 
             match result {
                 Ok(ast) => return Ok(ast),
-                Err(_) => self.parser.get_mut().index = index,
+                Err(_) => self.parser.borrow_mut().index = index,
             }
         }
 
@@ -146,7 +147,7 @@ impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
     }
 
     fn or(mut self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T> {
-        self.rules.push(Box::new(other));
+        self.rules.push(Rc::new(RefCell::new(other)));
         self
     }
 }
