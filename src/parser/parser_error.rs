@@ -7,3 +7,13 @@ pub struct SyntaxError {
     pub expected_tokens: HashSet<TokenType>,
     pub message: String,
 }
+
+impl SyntaxError {
+    pub fn new(pos: usize, message: String) -> Self {
+        Self {
+            pos,
+            expected_tokens: HashSet::new(),
+            message,
+        }
+    }
+}

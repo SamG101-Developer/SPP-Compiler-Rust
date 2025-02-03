@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::local_variable_single_identifier_alias_ast::LocalVariableSingleIdentifierAliasAst;
 use crate::asts::token_ast::TokenAst;
@@ -22,5 +23,11 @@ impl PatternVariantSingleIdentifierAst {
             name,
             alias,
         }
+    }
+}
+
+impl Ast for PatternVariantSingleIdentifierAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

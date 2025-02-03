@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::parser::parser::Parser;
 use crate::parser::parser_error::SyntaxError;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 type ParserRule<T> = Box<dyn FnMut() -> Result<T, SyntaxError>>;
 
@@ -15,7 +15,7 @@ pub struct AlternativeParserRuleHandler<T> {
     pub parser: RefCell<Rc<Parser>>,
 }
 
-impl <T> SingleParserRuleHandler<T> {
+impl<T> SingleParserRuleHandler<T> {
     pub fn enum_wrapper<U, Arg>(self, rule: Box<fn(Arg) -> U>) -> SingleParserRuleHandler<U> {
         SingleParserRuleHandler {
             rule,
@@ -44,10 +44,7 @@ pub trait ParserRuleHandler<T> {
         }
     }
 
-    fn parse_zero_or_more<U>(
-        &mut self,
-        mut separator: Box<impl ParserRuleHandler<U>>,
-    ) -> Vec<T> {
+    fn parse_zero_or_more<U>(&mut self, mut separator: Box<impl ParserRuleHandler<U>>) -> Vec<T> {
         let mut result = vec![];
 
         loop {
@@ -76,7 +73,10 @@ pub trait ParserRuleHandler<T> {
     ) -> Result<Vec<T>, SyntaxError> {
         let result = self.parse_zero_or_more(separator);
         if result.len() < 1 {
-            return Err(SyntaxError {});
+            return Err(SyntaxError::new(
+                self.get_parser_index(),
+                "Expected one or more".to_string(),
+            ));
         }
         Ok(result)
     }
@@ -87,19 +87,20 @@ pub trait ParserRuleHandler<T> {
     ) -> Result<Vec<T>, SyntaxError> {
         let result = self.parse_zero_or_more(separator);
         if result.len() < 2 {
-            return Err(SyntaxError {});
+            return Err(SyntaxError::new(
+                self.get_parser_index(),
+                "Expected two or more".to_string(),
+            ));
         }
         Ok(result)
     }
 
-    fn or(
-        self,
-        other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T>;
+    fn or(self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T>;
 }
 
 impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
-    fn get_parser_index(&mut self) -> usize {
-        self.parser.borrow_mut().index
+    fn get_parser_index(&self) -> usize {
+        self.parser.borrow().index
     }
 
     fn set_parser_index(&mut self, index: usize) {
@@ -119,8 +120,8 @@ impl<T> ParserRuleHandler<T> for SingleParserRuleHandler<T> {
 }
 
 impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
-    fn get_parser_index(&mut self) -> usize {
-        self.parser.borrow_mut().index
+    fn get_parser_index(&self) -> usize {
+        self.parser.borrow().index
     }
 
     fn set_parser_index(&mut self, index: usize) {
@@ -138,7 +139,10 @@ impl<T> ParserRuleHandler<T> for AlternativeParserRuleHandler<T> {
             }
         }
 
-        Err(SyntaxError {})
+        Err(SyntaxError::new(
+            self.get_parser_index(),
+            "Expected one of the alternatives".to_string(),
+        ))
     }
 
     fn or(mut self, other: SingleParserRuleHandler<T>) -> AlternativeParserRuleHandler<T> {

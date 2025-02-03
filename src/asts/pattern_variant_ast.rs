@@ -1,5 +1,4 @@
 use crate::asts::ast::{Ast, ToBinaryExpression};
-use crate::asts::binary_expression_ast::BinaryExpressionAst;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::is_expression_ast::IsExpressionAst;
 use crate::asts::pattern_variant_attribute_binding_ast::PatternVariantAttributeBindingAst;

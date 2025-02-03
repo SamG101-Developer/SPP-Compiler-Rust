@@ -25,7 +25,7 @@ impl GenericIdentifierAst {
 
 impl From<&TypeAst> for GenericIdentifierAst {
     fn from(type_: &TypeAst) -> Self {
-        type_.types.last().unwrap().clone().into()
+        type_.types.last().unwrap()
     }
 }
 

@@ -1,4 +1,5 @@
 #![feature(trait_alias)]
+#![feature(unboxed_closures)]
 
 mod lexer;
 mod parser;

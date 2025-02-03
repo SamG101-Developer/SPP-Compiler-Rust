@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::pattern_variant_ast::PatternVariantNestedForDestructureTupleAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl PatternVariantDestructureTupleAst {
             elements,
             tok_parenthesis_r,
         }
+    }
+}
+
+impl Ast for PatternVariantDestructureTupleAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

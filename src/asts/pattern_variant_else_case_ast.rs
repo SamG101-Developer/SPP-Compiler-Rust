@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::case_expression_ast::CaseExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl PatternVariantElseCaseAst {
             tok_else,
             case_expression,
         }
+    }
+}
+
+impl Ast for PatternVariantElseCaseAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

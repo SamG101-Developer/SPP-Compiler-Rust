@@ -115,11 +115,15 @@ impl Parser {
         self.index
     }
 
-    fn store_error(&mut self, pos: usize, message: String) {
+    fn store_error(&mut self, pos: usize, message: String) -> bool {
         if pos > self.error.pos {
             self.error.expected_tokens.clear();
             self.error.pos = pos;
             self.error.message = message;
+            true
+        }
+        else {
+            false
         }
     }
 }
@@ -582,61 +586,60 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut op: SingleParserRuleHandler<TokenAst>, mut rhs: SingleParserRuleHandler<T>) -> SingleParserRuleHandler<(TokenAst, T)> {
-        let p1 = op.parse_once()?;
-        let p2 = rhs.parse_once()?;
+    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut op: Box<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>, mut rhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>) -> SingleParserRuleHandler<(TokenAst, T)> {
+        let p1 = op().parse_once()?;
+        let p2 = rhs().parse_once()?;
         return Ok((p1, p2));
     }
 
     #[parser_rule]
-    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut lhs: SingleParserRuleHandler<ExpressionAst>, op: SingleParserRuleHandler<TokenAst>, rhs: SingleParserRuleHandler<T>) -> SingleParserRuleHandler<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(self: &'static Rc<Self>, mut lhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>, op: Box<dyn FnMut<(), Output=SingleParserRuleHandler<TokenAst>>>, rhs: Box<dyn FnMut<(), Output=SingleParserRuleHandler<T>>>) -> SingleParserRuleHandler<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = lhs.parse_once()?;
+        let p1 = lhs().parse_once()?;
         let p2 = self.parse_binary_expression_precedence_level_n_rhs(op, rhs).parse_optional();
-
         return Ok(if let Some(p2) = p2 { T::to_binary_expression(c1, p1, p2.0, p2.1) } else { p1 });
     }
 
     fn parse_binary_expression_precedence_level_1(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_binary_expression_precedence_level_2(),
-            self.parse_binary_op_precedence_level_1(),
-            self.parse_binary_expression_precedence_level_1())
+            Box::new(|| self.parse_binary_expression_precedence_level_2()),
+            Box::new(|| self.parse_binary_op_precedence_level_1()),
+            Box::new(|| self.parse_binary_expression_precedence_level_1()))
     }
 
     fn parse_binary_expression_precedence_level_2(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_binary_expression_precedence_level_3(),
-            self.parse_binary_op_precedence_level_2(),
-            self.parse_binary_expression_precedence_level_2())
+            Box::new(|| self.parse_binary_expression_precedence_level_3()),
+            Box::new(|| self.parse_binary_op_precedence_level_2()),
+            Box::new(|| self.parse_binary_expression_precedence_level_2()))
     }
 
     fn parse_binary_expression_precedence_level_3(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_binary_expression_precedence_level_4(),
-            self.parse_binary_op_precedence_level_3(),
-            self.parse_pattern_group_destructure())
+            Box::new(|| self.parse_binary_expression_precedence_level_4()),
+            Box::new(|| self.parse_binary_op_precedence_level_3()),
+            Box::new(|| self.parse_pattern_group_destructure()))
     }
 
     fn parse_binary_expression_precedence_level_4(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_binary_expression_precedence_level_5(),
-            self.parse_binary_op_precedence_level_4(),
-            self.parse_binary_expression_precedence_level_4())
+            Box::new(|| self.parse_binary_expression_precedence_level_5()),
+            Box::new(|| self.parse_binary_op_precedence_level_4()),
+            Box::new(|| self.parse_binary_expression_precedence_level_4()))
     }
 
     fn parse_binary_expression_precedence_level_5(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_binary_expression_precedence_level_6(),
-            self.parse_binary_op_precedence_level_5(),
-            self.parse_binary_expression_precedence_level_5())
+            Box::new(|| self.parse_binary_expression_precedence_level_6()),
+            Box::new(|| self.parse_binary_op_precedence_level_5()),
+            Box::new(|| self.parse_binary_expression_precedence_level_5()))
     }
 
     fn parse_binary_expression_precedence_level_6(self: &'static Rc<Self>) -> SingleParserRuleHandler<ExpressionAst> {
         self.parse_binary_expression_precedence_level_n(
-            self.parse_unary_expression(),
-            self.parse_binary_op_precedence_level_6(),
-            self.parse_binary_expression_precedence_level_6())
+            Box::new(|| self.parse_unary_expression()),
+            Box::new(|| self.parse_binary_op_precedence_level_6()),
+            Box::new(|| self.parse_binary_expression_precedence_level_6()))
     }
 
     #[parser_rule]
@@ -1617,7 +1620,7 @@ impl Parser {
     fn parse_upper_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<IdentifierAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_lexeme_upper_identifier().parse_once()?;
-        return Ok(IdentifierAst::new(c1, p1.token.token_metadata));
+        return Ok(IdentifierAst::new(c1, p1.metadata));
     }
 
     #[parser_rule]
@@ -1633,8 +1636,8 @@ impl Parser {
         let p1 = self.parse_literal_float();
         let p2 = self.parse_literal_integer();
         let p3 = self.parse_literal_string();
-        let p4 = self.parse_literal_tuple(Box::new(self.parse_expression()));
-        let p5 = self.parse_literal_array(Box::new(self.parse_expression()));
+        let p4 = self.parse_literal_tuple(|| Box::new(self.parse_expression()));
+        let p5 = self.parse_literal_array(|| Box::new(self.parse_expression()));
         let p6 = self.parse_literal_boolean();
         let p7 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
         return Ok(p7);
@@ -1663,18 +1666,18 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple<T>(self: &'static Rc<Self>, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple<T>(self: &'static Rc<Self>, item: Box<dyn FnMut() -> SingleParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_tuple_0_items();
-        let p2 = self.parse_literal_tuple_1_items(Box::new(item.parse_once()));
-        let p3 = self.parse_literal_tuple_n_items(Box::new(item.parse_once()));
+        let p2 = self.parse_literal_tuple_1_items(item);
+        let p3 = self.parse_literal_tuple_n_items(item);
         let p4 = p1.or(p2).or(p3).parse_once()?;
         return Ok(p4);
     }
 
     #[parser_rule]
-    fn parse_literal_array<T>(self: &'static Rc<Self>, mut item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array<T>(self: &'static Rc<Self>, item: Box<dyn FnMut() -> SingleParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
         let p1 = self.parse_literal_array_0_items();
-        let p2 = self.parse_literal_array_n_items(Box::new(item.parse_once()));
+        let p2 = self.parse_literal_array_n_items(item);
         let p3 = p1.or(p2).parse_once()?;
         return Ok(p3);
     }
@@ -1775,20 +1778,20 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_1_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_1_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
         let p2 = item().parse_once()?;
         let p3 = self.parse_token_comma().parse_once()?;
         let p4 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LiteralAst::new_tuple(c1, p1, [p2], p4));
+        return Ok(LiteralAst::new_tuple(c1, p1, vec![p2], p4));
     }
 
     #[parser_rule]
-    fn parse_literal_tuple_n_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_tuple_n_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut<(), Output=SingleParserRuleHandler<ExpressionAst>>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = item().parse_two_or_more(TokenType::TkComma);
+        let p2 = item().parse_two_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_parenthesis().parse_once()?;
         return Ok(LiteralAst::new_tuple(c1, p1, p2, p3));
     }
@@ -1805,10 +1808,10 @@ impl Parser {
     }
 
     #[parser_rule]
-    fn parse_literal_array_n_items<T>(self: &'static Rc<Self>, item: Box<impl ParserRuleHandler<T>>) -> SingleParserRuleHandler<LiteralAst> {
+    fn parse_literal_array_n_items(self: &'static Rc<Self>, mut item: Box<dyn FnMut() -> SingleParserRuleHandler<ExpressionAst>>) -> SingleParserRuleHandler<LiteralAst> {
         let c1 = self.current_pos();
         let p1 = self.parse_token_left_square_bracket().parse_once()?;
-        let p2 = item().parse_one_or_more(TokenType::TkComma);
+        let p2 = item().parse_one_or_more(Box::new(self.parse_token_comma()))?;
         let p3 = self.parse_token_right_square_bracket().parse_once()?;
         return Ok(LiteralAst::new_array_n(c1, p1, p2, p3));
     }
@@ -1818,8 +1821,8 @@ impl Parser {
         let p1 = self.parse_literal_float().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p2 = self.parse_literal_integer().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p3 = self.parse_literal_string().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p4 = self.parse_literal_tuple(Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p5 = self.parse_literal_array(Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
+        let p4 = self.parse_literal_tuple(|| Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
+        let p5 = self.parse_literal_array(|| Box::new(self.parse_global_constant_value())).enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p6 = self.parse_literal_boolean().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p7 = self.parse_global_object_initializer().enum_wrapper(Box::new(PrimaryExpressionAst::Literal)).enum_wrapper(Box::new(ExpressionAst::Primary));
         let p8 = self.parse_identifier().enum_wrapper(Box::new(PrimaryExpressionAst::Identifier)).enum_wrapper(Box::new(ExpressionAst::Primary));
@@ -1859,7 +1862,7 @@ impl Parser {
         for c in keyword.to_string().chars() {
             let p1 = self.parse_character(c);
         }
-        return Ok(TokenAst::new(c1, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, keyword.to_string()));
     }
 
     #[parser_rule]
@@ -2130,21 +2133,66 @@ impl Parser {
     #[parser_rule]
     fn parse_lexeme_dec_integer(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
+        let mut integer = "".to_string();
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkNumber(num)).parse_once()?;
+            integer.push(char::from(p1.metadata.as_bytes()[0]));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
+        if integer.len() == 0 {
+            return Err(SyntaxError::new(c1, "Expected decimal integer".to_string()));
+        }
+        return Ok(TokenAst::new(c1, TokenType::NoToken, integer));
+    }
+
+    #[parser_rule]
+    fn parse_lexeme_bin_integer(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
+        let c1 = self.current_pos();
+        let mut integer = "".to_string();
+        self.parse_token_primitive(TokenType::TkNumber('0')).parse_once()?;
+        self.parse_token_primitive(TokenType::TkCharacter('b')).parse_once()?;
+        while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
+            let p1 = self.parse_token_primitive(TokenType::TkNumber(num)).parse_once()?;
+            integer.push(char::from(p1.metadata.as_bytes()[0]));
+            if num.is_digit(2) {
+                return Err(SyntaxError::new(c1, "Expected binary integer".to_string()));
+            }
+        }
+        if integer.len() == 0 {
+            return Err(SyntaxError::new(c1, "Expected binary integer".to_string()));
+        }
+        return Ok(TokenAst::new(c1, TokenType::NoToken, integer));
+    }
+
+    #[parser_rule]
+    fn parse_lexeme_hex_integer(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
+        let c1 = self.current_pos();
+        let mut integer = "".to_string();
+        self.parse_token_primitive(TokenType::TkNumber('0')).parse_once()?;
+        self.parse_token_primitive(TokenType::TkCharacter('x')).parse_once()?;
+        while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
+            let p1 = self.parse_token_primitive(TokenType::TkNumber(num)).parse_once()?;
+            integer.push(char::from(p1.metadata.as_bytes()[0]));
+            if !num.is_digit(16) {
+                return Err(SyntaxError::new(c1, "Expected hexadecimal integer".to_string()));
+            }
+        }
+        if integer.len() == 0 {
+            return Err(SyntaxError::new(c1, "Expected hexadecimal integer".to_string()));
+        }
+        return Ok(TokenAst::new(c1, TokenType::NoToken, integer));
     }
 
     #[parser_rule]
     fn parse_lexeme_string(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
+        let mut identifier = "".to_string();
         self.parse_token_speech_mark().parse_once()?;
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkCharacter(string)).parse_once()?;
+            identifier.push(p1.metadata.as_bytes()[0] as char);
         }
         self.parse_token_speech_mark().parse_once()?;
-        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
+        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
     }
 
     #[parser_rule]
@@ -2153,7 +2201,27 @@ impl Parser {
         let mut identifier = "".to_string();
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = self.parse_token_primitive(TokenType::TkCharacter(string)).parse_once()?;
-            identifier.push(string);
+            identifier.push(p1.metadata.as_bytes()[0] as char);
+        }
+        if identifier.len() == 0 {
+            return Err(SyntaxError::new(c1, "Expected identifier".to_string()));
+        }
+        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
+    }
+
+    #[parser_rule]
+    fn parse_lexeme_upper_identifier(self: &'static Rc<Self>) -> SingleParserRuleHandler<TokenAst> {
+        let c1 = self.current_pos();
+        let mut identifier = "".to_string();
+        while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
+            let p1 = self.parse_token_primitive(TokenType::TkCharacter(string)).parse_once()?;
+            identifier.push(p1.metadata.as_bytes()[0] as char);
+        }
+        if identifier.len() == 0 {
+            return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
+        }
+        if (identifier.as_bytes()[0] as char).is_lowercase() {
+            return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
         }
         return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
     }
@@ -2161,8 +2229,13 @@ impl Parser {
     #[parser_rule]
     fn parse_characters(self: &'static Rc<Self>, characters: &str) -> SingleParserRuleHandler<TokenAst> {
         let c1 = self.current_pos();
+        let mut identifier = "".to_string();
         for c in characters.chars() {
-            let p1 = self.parse_character(c);
+            let p1 = self.parse_character(c).parse_once()?;
+            identifier.push(p1.metadata.as_bytes()[0] as char);
+        }
+        if identifier != characters {
+            return Err(SyntaxError::new(c1, format!("Expected '{}', got '{}'", characters, identifier)));
         }
         return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
     }
