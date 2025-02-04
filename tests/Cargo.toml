@@ -1,0 +1,12 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+core_lib = { path = "../core_lib" }
+proc_macros = { path = "../proc_macros" }
+
+[[test]]
+name = "test_parser"
+path = "test_parser.rs"
