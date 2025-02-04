@@ -3,7 +3,7 @@ use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::local_variable_single_identifier_alias_ast::LocalVariableSingleIdentifierAliasAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LocalVariableSingleIdentifierAst {
     pub pos: usize,
     pub tok_mut: Option<TokenAst>,

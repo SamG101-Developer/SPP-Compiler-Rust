@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::local_variable_single_identifier_ast::LocalVariableSingleIdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LocalVariableDestructureSkipNArgumentsAst {
     pos: usize,
     tok_variadic: TokenAst,

@@ -8,7 +8,7 @@ use crate::asts::pattern_variant_expression_ast::PatternVariantExpressionAst;
 use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CaseExpressionAst {
     pub pos: usize,
     pub tok_case: TokenAst,

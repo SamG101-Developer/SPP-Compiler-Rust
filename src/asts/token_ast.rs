@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::lexer::token::TokenType;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TokenAst {
     pub pos: usize,
     pub token_type: TokenType,

@@ -4,7 +4,7 @@ use crate::asts::generic_parameter_group_ast::GenericParameterGroupAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UseStatementAst {
     pub pos: usize,
     pub annotations: Vec<AnnotationAst>,

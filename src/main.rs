@@ -17,5 +17,5 @@ fn main() {
     let start_time = std::time::Instant::now();
     let ast = parser::parser::Parser::new(tokens).parse();
     let end_time = std::time::Instant::now();
-    println!("Parsing: Done ({}ms)", (end_time - start_time).as_millis());
+    println!("Parsing: {:?} ({}ms)", ast, (end_time - start_time).as_millis());
 }

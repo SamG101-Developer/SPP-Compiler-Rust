@@ -15,7 +15,7 @@ use crate::asts::pattern_variant_single_identifier_ast::PatternVariantSingleIden
 use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantAst {
     Else(PatternVariantElseAst),
     ElseCase(PatternVariantElseCaseAst),
@@ -27,7 +27,7 @@ pub enum PatternVariantAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantNestedForDestructureArrayAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),
@@ -39,7 +39,7 @@ pub enum PatternVariantNestedForDestructureArrayAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantNestedForDestructureTupleAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),
@@ -51,14 +51,14 @@ pub enum PatternVariantNestedForDestructureTupleAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantNestedForDestructureObjectAst {
     AttrBind(PatternVariantAttributeBindingAst),
     SkipNArgs(PatternVariantDestructureSkipNArgumentsAst),
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantNestedForAttributeBindingAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),

@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::local_variable_ast::LocalVariableAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WithExpressionAliasAst {
     pub pos: usize,
     pub variable: LocalVariableAst,

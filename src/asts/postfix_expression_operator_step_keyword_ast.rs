@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostfixExpressionOperatorStepKeywordAst {
     pos: usize,
     tok_access: TokenAst,

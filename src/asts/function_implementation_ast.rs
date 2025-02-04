@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::function_member_ast::FunctionMemberAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FunctionImplementationAst {
     pub pos: usize,
     pub tok_brace_l: TokenAst,

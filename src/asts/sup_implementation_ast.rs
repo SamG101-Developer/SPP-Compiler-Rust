@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::sup_member_ast::SupMemberAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SupImplementationAst {
     pub pos: usize,
     pub tok_brace_l: TokenAst,

@@ -3,7 +3,7 @@ use crate::asts::convention_ast::ConventionAst;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenExpressionAst {
     pub pos: usize,
     pub tok_gen: TokenAst,

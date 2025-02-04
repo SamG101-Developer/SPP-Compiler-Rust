@@ -3,7 +3,7 @@ use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::pattern_variant_ast::PatternVariantNestedForAttributeBindingAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PatternVariantAttributeBindingAst {
     pub pos: usize,
     pub name: IdentifierAst,

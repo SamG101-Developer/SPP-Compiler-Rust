@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::literal_ast::LiteralAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PatternVariantLiteralAst {
     Float(LiteralAst),
     Integer(LiteralAst),

@@ -8,7 +8,7 @@ use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::statement_ast::StatementAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CaseExpressionBranchAst {
     pub pos: usize,
     pub comp_op: Option<TokenAst>,

@@ -5,7 +5,7 @@ use crate::asts::postfix_expression_operator_member_access_ast::PostfixExpressio
 use crate::asts::postfix_expression_operator_not_keyword_ast::PostfixExpressionOperatorNotKeywordAst;
 use crate::asts::postfix_expression_operator_step_keyword_ast::PostfixExpressionOperatorStepKeywordAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PostfixExpressionOperatorAst {
     EarlyReturn(PostfixExpressionOperatorEarlyReturnAst),
     FunctionCall(PostfixExpressionOperatorFunctionCallAst),

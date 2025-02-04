@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PatternVariantExpressionAst {
     pub pos: usize,
     pub expression: ExpressionAst,

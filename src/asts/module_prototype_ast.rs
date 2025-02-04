@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::module_implementation_ast::ModuleImplementationAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ModulePrototypeAst {
     pos: usize,
     body: ModuleImplementationAst,

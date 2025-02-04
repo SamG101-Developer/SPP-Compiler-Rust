@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::case_expression_ast::CaseExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PatternVariantElseCaseAst {
     pub pos: usize,
     pub tok_else: TokenAst,

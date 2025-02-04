@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IdentifierAst {
     pub pos: usize,
     pub value: String,

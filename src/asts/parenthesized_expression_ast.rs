@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ParenthesizedExpressionAst {
     pos: usize,
     tok_parenthesis_l: TokenAst,

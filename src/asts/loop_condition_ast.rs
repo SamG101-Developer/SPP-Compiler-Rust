@@ -3,7 +3,7 @@ use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::local_variable_ast::LocalVariableAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum LoopConditionAst {
     Boolean {
         pos: usize,

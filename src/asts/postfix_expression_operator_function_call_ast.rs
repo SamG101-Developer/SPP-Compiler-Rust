@@ -6,7 +6,7 @@ use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::unary_expression_operator_async_ast::UnaryExpressionOperatorAsyncAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostfixExpressionOperatorFunctionCallAst {
     pub pos: usize,
     pub generic_args_group: Option<GenericArgumentGroupAst>,

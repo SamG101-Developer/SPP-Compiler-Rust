@@ -3,7 +3,7 @@ use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenericIdentifierAst {
     pub pos: usize,
     pub value: String,

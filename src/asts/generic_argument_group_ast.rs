@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::generic_argument_ast::GenericArgumentAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenericArgumentGroupAst {
     pub pos: usize,
     pub tok_bracket_l: TokenAst,

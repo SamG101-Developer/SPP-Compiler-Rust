@@ -3,7 +3,7 @@ use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::pattern_variant_ast::PatternVariantAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IsExpressionAst {
     pub pos: usize,
     pub left: Box<ExpressionAst>,

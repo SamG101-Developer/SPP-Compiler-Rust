@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::function_parameter_ast::FunctionParameterAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FunctionParameterGroupAst {
     pub pos: usize,
     pub tok_paren_l: TokenAst,

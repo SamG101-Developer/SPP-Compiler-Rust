@@ -10,7 +10,7 @@ use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 use crate::asts::where_block_ast::WhereBlockAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FunctionPrototypeBaseAst {
     pub pos: usize,
     pub annotations: Vec<AnnotationAst>,
@@ -72,7 +72,7 @@ impl Ast for FunctionPrototypeBaseAst {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FunctionPrototypeAst {
     Coroutine(CoroutinePrototypeAst),
     Subroutine(SubroutinePrototypeAst),

@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::local_variable_ast::LocalVariableNestedForDestructureArrayAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LocalVariableDestructureArrayAst {
     pub pos: usize,
     pub tok_bracket_l: TokenAst,

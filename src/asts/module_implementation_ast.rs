@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::module_member_ast::ModuleMemberAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ModuleImplementationAst {
     pos: usize,
     members: Vec<ModuleMemberAst>,

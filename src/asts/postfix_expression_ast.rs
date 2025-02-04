@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::postfix_expression_operator_ast::PostfixExpressionOperatorAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostfixExpressionAst {
     pub pos: usize,
     pub lhs: Box<ExpressionAst>,

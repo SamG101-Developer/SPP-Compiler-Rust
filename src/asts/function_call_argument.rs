@@ -4,7 +4,7 @@ use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FunctionCallArgumentAst {
     NamedArgument {
         pos: usize,

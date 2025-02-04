@@ -1,7 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::unary_expression_operator_async_ast::UnaryExpressionOperatorAsyncAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum UnaryExpressionOperatorAst {
     Async(UnaryExpressionOperatorAsyncAst),
 }

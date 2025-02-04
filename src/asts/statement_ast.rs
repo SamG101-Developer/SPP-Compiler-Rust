@@ -8,7 +8,7 @@ use crate::asts::rel_statement_ast::RelStatementAst;
 use crate::asts::ret_statement_ast::RetStatementAst;
 use crate::asts::use_statement_ast::UseStatementAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum StatementAst {
     Assignment(AssignmentStatementAst),
     Expression(ExpressionAst),

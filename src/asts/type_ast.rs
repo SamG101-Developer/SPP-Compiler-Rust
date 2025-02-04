@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::identifier_ast::IdentifierAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TypeAst {
     pub pos: usize,
     pub namespace: Vec<IdentifierAst>,

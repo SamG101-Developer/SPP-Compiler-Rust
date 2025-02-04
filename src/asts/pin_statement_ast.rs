@@ -2,7 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PinStatementAst {
     pub pos: usize,
     pub tok_pin: TokenAst,
