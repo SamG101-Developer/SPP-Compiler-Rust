@@ -3,6 +3,7 @@ use crate::asts::local_variable_ast::LocalVariableNestedForDestructureObjectAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct LocalVariableDestructureObjectAst {
     pub pos: usize,
     pub type_: TypeAst,

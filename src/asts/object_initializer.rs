@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::object_initializer_argument_group_ast::ObjectInitializerArgumentGroupAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct ObjectInitializerAst {
     pub pos: usize,
     pub type_: TypeAst,

@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::unary_expression_operator_ast::UnaryExpressionOperatorAst;
 
+#[derive(Clone)]
 pub struct UnaryExpressionAst {
     pub pos: usize,
     pub op: UnaryExpressionOperatorAst,

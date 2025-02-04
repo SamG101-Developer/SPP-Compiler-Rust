@@ -4,6 +4,7 @@ use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct ClassAttributeAst {
     pub pos: usize,
     pub annotations: Vec<AnnotationAst>,

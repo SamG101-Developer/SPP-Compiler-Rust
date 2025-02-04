@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::pattern_variant_ast::PatternVariantNestedForDestructureTupleAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct PatternVariantDestructureTupleAst {
     pub pos: usize,
     pub tok_parenthesis_l: TokenAst,

@@ -6,6 +6,7 @@ use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 use crate::asts::where_block_ast::WhereBlockAst;
 
+#[derive(Clone)]
 pub struct ClassPrototypeAst {
     pub pos: usize,
     pub annotations: Vec<AnnotationAst>,

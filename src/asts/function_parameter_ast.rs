@@ -7,6 +7,7 @@ use crate::asts::local_variable_ast::LocalVariableAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub enum FunctionParameterAst {
     Self_ {
         pos: usize,

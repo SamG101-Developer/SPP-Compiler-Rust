@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::object_initializer_argument_ast::ObjectInitializerArgumentAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct ObjectInitializerArgumentGroupAst {
     pub pos: usize,
     pub tok_parenthesis_l: TokenAst,

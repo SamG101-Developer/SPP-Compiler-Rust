@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::pattern_variant_single_identifier_ast::PatternVariantSingleIdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct PatternVariantDestructureSkipNArgumentsAst {
     pub pos: usize,
     pub tok_variadic: TokenAst,

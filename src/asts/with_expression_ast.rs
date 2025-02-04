@@ -4,6 +4,7 @@ use crate::asts::inner_scope_ast::InnerScopeAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::with_expression_alias_ast::WithExpressionAliasAst;
 
+#[derive(Clone)]
 pub struct WithExpressionAst {
     pub pos: usize,
     pub tok_with: TokenAst,

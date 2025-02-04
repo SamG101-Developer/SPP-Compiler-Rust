@@ -3,6 +3,7 @@ use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct GenericIdentifierAst {
     pub pos: usize,
     pub value: String,
@@ -25,7 +26,11 @@ impl GenericIdentifierAst {
 
 impl From<&TypeAst> for GenericIdentifierAst {
     fn from(type_: &TypeAst) -> Self {
-        type_.types.last().unwrap()
+        GenericIdentifierAst {
+            pos: type_.get_pos(),
+            value: type_.types.last().unwrap().value.clone(),
+            generic_args_group: type_.types.last().unwrap().generic_args_group.clone(),
+        }
     }
 }
 

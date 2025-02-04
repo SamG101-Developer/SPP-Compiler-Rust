@@ -15,6 +15,7 @@ use crate::asts::pattern_variant_single_identifier_ast::PatternVariantSingleIden
 use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub enum PatternVariantAst {
     Else(PatternVariantElseAst),
     ElseCase(PatternVariantElseCaseAst),
@@ -26,6 +27,7 @@ pub enum PatternVariantAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum PatternVariantNestedForDestructureArrayAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),
@@ -37,6 +39,7 @@ pub enum PatternVariantNestedForDestructureArrayAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum PatternVariantNestedForDestructureTupleAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),
@@ -48,12 +51,14 @@ pub enum PatternVariantNestedForDestructureTupleAst {
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum PatternVariantNestedForDestructureObjectAst {
     AttrBind(PatternVariantAttributeBindingAst),
     SkipNArgs(PatternVariantDestructureSkipNArgumentsAst),
     SingleIdentifier(PatternVariantSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum PatternVariantNestedForAttributeBindingAst {
     DestructureArray(PatternVariantDestructureArrayAst),
     DestructureTuple(PatternVariantDestructureTupleAst),
@@ -70,9 +75,7 @@ impl Ast for PatternVariantAst {
             PatternVariantAst::Literal(literal) => literal.get_pos(),
             PatternVariantAst::DestructureArray(destructure_array) => destructure_array.get_pos(),
             PatternVariantAst::DestructureTuple(destructure_tuple) => destructure_tuple.get_pos(),
-            PatternVariantAst::DestructureObject(destructure_object) => {
-                destructure_object.get_pos()
-            }
+            PatternVariantAst::DestructureObject(destructure_object) => { destructure_object.get_pos() }
             PatternVariantAst::SingleIdentifier(single_identifier) => single_identifier.get_pos(),
         }
     }

@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::local_variable_ast::LocalVariableNestedForDestructureTupleAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct LocalVariableDestructureTupleAst {
     pub pos: usize,
     pub tok_parenthesis_l: TokenAst,

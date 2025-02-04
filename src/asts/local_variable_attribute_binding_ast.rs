@@ -3,6 +3,7 @@ use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::local_variable_ast::LocalVariableNestedForAttributeBindingAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct LocalVariableAttributeBindingAst {
     pub pos: usize,
     pub name: IdentifierAst,

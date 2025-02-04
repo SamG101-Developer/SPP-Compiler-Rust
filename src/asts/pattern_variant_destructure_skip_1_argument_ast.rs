@@ -1,6 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct PatternVariantDestructureSkip1ArgumentAst {
     pub pos: usize,
     pub tok_underscore: TokenAst,

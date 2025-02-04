@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct WhereConstraintsAst {
     pub pos: usize,
     pub types: Vec<TypeAst>,

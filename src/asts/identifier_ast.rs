@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct IdentifierAst {
     pub pos: usize,
     pub value: String,
@@ -21,7 +22,7 @@ impl Ast for IdentifierAst {
 
 impl From<&TypeAst> for IdentifierAst {
     fn from(type_: &TypeAst) -> Self {
-        IdentifierAst::from(type_.types.last())
+        IdentifierAst::from(type_.types.last().unwrap())
     }
 }
 

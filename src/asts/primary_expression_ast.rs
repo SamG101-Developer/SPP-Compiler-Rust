@@ -12,6 +12,7 @@ use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 use crate::asts::with_expression_ast::WithExpressionAst;
 
+#[derive(Clone)]
 pub enum PrimaryExpressionAst {
     Literal(LiteralAst),
     Identifier(IdentifierAst),

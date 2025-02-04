@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::statement_ast::StatementAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct InnerScopeAst {
     pos: usize,
     tok_brace_l: TokenAst,

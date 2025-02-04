@@ -3,6 +3,7 @@ use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub enum GenericArgumentAst {
     CompNamed {
         pos: usize,

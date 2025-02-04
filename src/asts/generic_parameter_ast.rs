@@ -4,6 +4,7 @@ use crate::asts::generic_parameter_constraints_ast::GenericParameterConstraintsA
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub enum GenericParameterAst {
     CompRequired {
         pos: usize,

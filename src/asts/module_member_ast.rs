@@ -6,6 +6,7 @@ use crate::asts::sup_prototype_extension_ast::SupPrototypeExtensionAst;
 use crate::asts::sup_prototype_functions_ast::SupPrototypeFunctionsAst;
 use crate::asts::use_statement_ast::UseStatementAst;
 
+#[derive(Clone)]
 pub enum ModuleMemberAst {
     Class(ClassPrototypeAst),
     Function(FunctionPrototypeAst),

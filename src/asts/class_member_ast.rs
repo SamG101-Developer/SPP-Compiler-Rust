@@ -1,6 +1,7 @@
 use crate::asts::ast::Ast;
 use crate::asts::class_attribute_ast::ClassAttributeAst;
 
+#[derive(Clone)]
 pub enum ClassMemberAst {
     Attr(ClassAttributeAst),
 }

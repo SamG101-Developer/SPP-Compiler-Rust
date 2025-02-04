@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::generic_parameter_ast::GenericParameterAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct GenericParameterGroupAst {
     pub pos: usize,
     pub tok_bracket_l: TokenAst,

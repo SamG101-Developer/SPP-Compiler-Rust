@@ -3,6 +3,7 @@ use crate::asts::pattern_variant_ast::PatternVariantNestedForDestructureObjectAs
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
+#[derive(Clone)]
 pub struct PatternVariantDestructureObjectAst {
     pub pos: usize,
     pub type_: TypeAst,

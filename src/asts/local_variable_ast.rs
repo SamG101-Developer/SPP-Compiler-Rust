@@ -7,6 +7,7 @@ use crate::asts::local_variable_destructure_skip_n_arguments_ast::LocalVariableD
 use crate::asts::local_variable_destructure_tuple_ast::LocalVariableDestructureTupleAst;
 use crate::asts::local_variable_single_identifier_ast::LocalVariableSingleIdentifierAst;
 
+#[derive(Clone)]
 pub enum LocalVariableAst {
     DestructureArray(LocalVariableDestructureArrayAst),
     DestructureTuple(LocalVariableDestructureTupleAst),
@@ -14,6 +15,7 @@ pub enum LocalVariableAst {
     SingleIdentifier(LocalVariableSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum LocalVariableNestedForDestructureArrayAst {
     DestructureArray(LocalVariableDestructureArrayAst),
     DestructureTuple(LocalVariableDestructureTupleAst),
@@ -23,6 +25,7 @@ pub enum LocalVariableNestedForDestructureArrayAst {
     SkipNArgs(LocalVariableDestructureSkipNArgumentsAst),
 }
 
+#[derive(Clone)]
 pub enum LocalVariableNestedForDestructureTupleAst {
     DestructureArray(LocalVariableDestructureArrayAst),
     DestructureTuple(LocalVariableDestructureTupleAst),
@@ -32,12 +35,14 @@ pub enum LocalVariableNestedForDestructureTupleAst {
     SkipNArgs(LocalVariableDestructureSkipNArgumentsAst),
 }
 
+#[derive(Clone)]
 pub enum LocalVariableNestedForDestructureObjectAst {
     AttrBind(LocalVariableAttributeBindingAst),
     SkipNArgs(LocalVariableDestructureSkipNArgumentsAst),
     SingleIdentifier(LocalVariableSingleIdentifierAst),
 }
 
+#[derive(Clone)]
 pub enum LocalVariableNestedForAttributeBindingAst {
     DestructureArray(LocalVariableDestructureArrayAst),
     DestructureTuple(LocalVariableDestructureTupleAst),

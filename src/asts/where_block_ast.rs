@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::where_constraints_group_ast::WhereConstraintsGroupAst;
 
+#[derive(Clone)]
 pub struct WhereBlockAst {
     pub pos: usize,
     pub tok_where: TokenAst,

@@ -2,6 +2,7 @@ use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
+#[derive(Clone)]
 pub struct BinaryExpressionAst {
     pub pos: usize,
     pub left: Box<ExpressionAst>,

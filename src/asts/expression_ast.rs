@@ -5,6 +5,7 @@ use crate::asts::primary_expression_ast::PrimaryExpressionAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::unary_expression_ast::UnaryExpressionAst;
 
+#[derive(Clone)]
 pub enum ExpressionAst {
     Binary(BinaryExpressionAst),
     Postfix(PostfixExpressionAst),
