@@ -37,8 +37,9 @@ impl Lexer {
                 '_' => TokenType::TkUnderscore,
                 '"' => TokenType::TkSpeechMark,
                 '$' => TokenType::TkDollar,
+                ' ' => TokenType::TkWhitespace,
                 '\n' => TokenType::TkNewLine,
-                ' ' => continue,
+                '\r' => continue,
                 c => TokenType::TkUnknown(c),
             });
         }

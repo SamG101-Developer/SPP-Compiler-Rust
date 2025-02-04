@@ -177,7 +177,7 @@ macro_rules! parse_zero_or_more {
                 Ok(ast) => {
                     result.push(ast);
                     let ast = parse_optional!($self, $sep);
-                    if ast.is_some() {
+                    if ast.is_none() {
                         break result;
                     }
                 }
@@ -325,16 +325,6 @@ impl Parser {
         Ok(ClassAttributeAst::new(c1, p1, p2, p3, p4))
     }
 
-    fn parse_sup_prototype_functions(&mut self) -> ParserResult<SupPrototypeFunctionsAst> {
-        let c1 = self.current_pos();
-        let p1 = parse_once!(self, Parser::parse_keyword_sup);
-        let p2 = parse_optional!(self, Parser::parse_generic_parameters);
-        let p3 = parse_once!(self, Parser::parse_type);
-        let p4 = parse_optional!(self, Parser::parse_where_block);
-        let p5 = parse_once!(self, Parser::parse_sup_implementation);
-        Ok(SupPrototypeFunctionsAst::new(c1, p1, p2, p3, p4, p5))
-    }
-
     fn parse_sup_prototype_extension(&mut self) -> ParserResult<SupPrototypeExtensionAst> {
         let c1 = self.current_pos();
         let p1 = parse_once!(self, Parser::parse_keyword_sup);
@@ -345,6 +335,16 @@ impl Parser {
         let p6 = parse_optional!(self, Parser::parse_where_block);
         let p7 = parse_once!(self, Parser::parse_sup_implementation);
         Ok(SupPrototypeExtensionAst::new(c1, p1, p2, p3, p4, p5, p6, p7))
+    }
+
+    fn parse_sup_prototype_functions(&mut self) -> ParserResult<SupPrototypeFunctionsAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_keyword_sup);
+        let p2 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p3 = parse_once!(self, Parser::parse_type);
+        let p4 = parse_optional!(self, Parser::parse_where_block);
+        let p5 = parse_once!(self, Parser::parse_sup_implementation);
+        Ok(SupPrototypeFunctionsAst::new(c1, p1, p2, p3, p4, p5))
     }
 
     fn parse_sup_implementation(&mut self) -> ParserResult<SupImplementationAst> {
@@ -1855,7 +1855,7 @@ impl Parser {
     fn parse_keyword(&mut self, keyword: Keywords) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         for c in keyword.to_string().chars() {
-            let p1 = self.parse_character(c);
+            let p1 = self.parse_character(c)?;
         }
         Ok(TokenAst::new(c1, TokenType::NoToken, keyword.to_string()))
     }
@@ -2085,8 +2085,8 @@ impl Parser {
     }
 
     fn parse_token_no_token(&mut self) -> ParserResult<TokenAst> {
-        let c1 = self.current_pos();
-        Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()))
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::NoToken));
+        Ok(p1)
     }
     
     fn parse_keyword_cls(&mut self) -> ParserResult<TokenAst> {
@@ -2329,9 +2329,19 @@ impl Parser {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
 
-        while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
-            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
-            identifier.push(string);
+        parse_once!(self, Parser::parse_token_no_token);
+        loop {
+            match self.tokens[self.current_pos()] {
+                TokenType::TkCharacter(string) => {
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
+                    identifier.push(string);
+                },
+                TokenType::TkUnderscore => {
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
+                    identifier.push('_');
+                },
+                _ => break,
+            }
         }
 
         if identifier.is_empty() {
@@ -2345,9 +2355,22 @@ impl Parser {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
 
-        while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
-            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
-            identifier.push(string);
+        parse_once!(self, Parser::parse_token_no_token);
+        loop {
+            match self.tokens[self.current_pos()] {
+                TokenType::TkCharacter(string) => {
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
+                    if identifier.is_empty() && string.is_lowercase() {
+                        return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
+                    }
+                    identifier.push(string);
+                },
+                TokenType::TkUnderscore => {
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
+                    identifier.push('_');
+                },
+                _ => break,
+            }
         }
 
         if identifier.is_empty() {
@@ -2379,6 +2402,9 @@ impl Parser {
 
     fn parse_character(&mut self, character: char) -> ParserResult<TokenAst> {
         let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(character)));
+        if p1.metadata.as_bytes()[0] as char != character {
+            return Err(SyntaxError::new(p1.pos, format!("Expected '{}', got '{}'", character, p1.metadata)));
+        }
         Ok(p1)
     }
 
@@ -2395,9 +2421,18 @@ impl Parser {
         }
 
         if token_type != TokenType::TkNewLine {
-            while self.tokens[self.index] == TokenType::TkNewLine {
+            while self.tokens[self.index] == TokenType::TkNewLine || self.tokens[self.index] == TokenType::TkWhitespace {
                 self.index += 1;
             }
+        }
+        if token_type == TokenType::TkNewLine {
+            while self.tokens[self.index] == TokenType::TkWhitespace {
+                self.index += 1;
+            }
+        }
+
+        if token_type == TokenType::NoToken {
+            return Ok(TokenAst::new(self.current_pos(), TokenType::NoToken, "".to_string()));
         }
 
         if self.tokens[self.index] != token_type {
@@ -2413,12 +2448,13 @@ impl Parser {
             return Err(self.error.clone());
         }
 
-        let r = TokenAst::new(
-            self.current_pos(),
-            self.tokens[self.index].clone(),
-            "".to_string(),
-        );
+        let token_character = match self.tokens[self.index] {
+            TokenType::TkCharacter(c) => String::from(c),
+            _ => "".to_string(),
+        };
+
+        let r = TokenAst::new(self.current_pos(), self.tokens[self.index].clone(), token_character);
         self.index += 1;
-        return Ok(r);
+        Ok(r)
     }
 }
