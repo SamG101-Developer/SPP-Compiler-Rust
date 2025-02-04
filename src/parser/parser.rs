@@ -88,7 +88,6 @@ use crate::asts::sup_implementation_ast::SupImplementationAst;
 use crate::asts::sup_member_ast::SupMemberAst;
 use crate::asts::sup_prototype_extension_ast::SupPrototypeExtensionAst;
 use crate::asts::sup_prototype_functions_ast::SupPrototypeFunctionsAst;
-use crate::asts::sup_use_statement_ast::SupUseStatementAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 use crate::asts::type_optional_ast::TypeOptionalAst;
@@ -105,10 +104,10 @@ use crate::asts::with_expression_alias_ast::WithExpressionAliasAst;
 use crate::asts::with_expression_ast::WithExpressionAst;
 use crate::lexer::token::{Keywords, TokenStream, TokenType};
 use crate::parser::parser_error::SyntaxError;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 type ParserResult<T> = Result<T, SyntaxError>;
+type ParserRule<T> = fn(&mut Parser) -> ParserResult<T>;
+
 
 #[derive(Debug, Clone)]
 pub struct Parser {
@@ -137,14 +136,14 @@ impl Parser {
 
 macro_rules! parse_once {
     ($self:ident, $method:expr) => {
-        $method()?
+        $method($self)?
     };
 }
 
 macro_rules! parse_optional {
     ($self:ident, $method:expr) => {{
         let index = $self.index;
-        let result = $method();
+        let result = $method($self);
 
         match result {
             Ok(ast) => Some(ast),
@@ -161,7 +160,7 @@ macro_rules! parse_zero_or_more {
         let mut result = vec![];
         loop {
             let index = $self.index;
-            let one_result = $method();
+            let one_result = $method($self);
             match one_result {
                 Ok(ast) => {
                     result.push(ast);
@@ -179,7 +178,6 @@ macro_rules! parse_zero_or_more {
     }};
 }
 
-// use parse_zero_or_more then check if the result is empty
 macro_rules! parse_one_or_more {
     ($self:ident, $method:expr, $sep:expr) => {{
         let result = parse_zero_or_more!($self, $method, $sep);
@@ -194,9 +192,23 @@ macro_rules! parse_one_or_more {
     }?};
 }
 
+macro_rules! parse_two_or_more {
+    ($self:ident, $method:expr, $sep:expr) => {{
+        let result = parse_zero_or_more!($self, $method, $sep);
+        if result.len() < 2 {
+            Err(SyntaxError::new(
+                $self.current_pos(),
+                "Expected at least one".to_string(),
+            ))
+        } else {
+            Ok(result)
+        }
+    }?};
+}
+
 macro_rules! parse_alternate {
     ($self:ident, $method:expr) => {
-        $method()?
+        $method($self)?
     };
     ($self:ident, $method:expr, $($rest:expr),+) => {
         match parse_optional!($self, $method) {
@@ -208,270 +220,244 @@ macro_rules! parse_alternate {
 
 impl Parser {
     fn parse_root(&mut self) -> ParserResult<ModulePrototypeAst> {
-        let p1 = parse_once!(self, || self.parse_module_prototype());
-        let p2 = parse_once!(self, || self.parse_eof());
+        let p1 = parse_once!(self, Parser::parse_module_prototype);
+        let p2 = parse_once!(self, Parser::parse_eof);
         Ok(p1)
     }
 
     fn parse_module_prototype(&mut self) -> ParserResult<ModulePrototypeAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_module_implementation());
+        let p1 = parse_once!(self, Parser::parse_module_implementation);
         Ok(ModulePrototypeAst::new(c1, p1))
     }
 
     fn parse_module_implementation(&mut self) -> ParserResult<ModuleImplementationAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_module_member(), || self
-            .parse_token_no_token());
+        let p1 = parse_zero_or_more!(self, Parser::parse_module_member, Parser::parse_token_no_token);
         Ok(ModuleImplementationAst::new(c1, p1))
     }
 
     fn parse_module_member(&mut self) -> ParserResult<ModuleMemberAst> {
-        let p1 = parse_alternate!(
-            self,
-            || ModuleMemberAst::Function(parse_once!(self, || self.parse_function_prototype())),
-            || ModuleMemberAst::GlobalConst(parse_once!(self, || self.parse_global_constant())),
-            || ModuleMemberAst::UseStatement(parse_once!(self, || self.parse_global_use_statement())),
-            || ModuleMemberAst::Class(parse_once!(self, || self.parse_class_prototype())),
-            || ModuleMemberAst::SupExtension(parse_once!(self, || self.parse_sup_prototype_extension())),
-            || ModuleMemberAst::SupFunctions(parse_once!(self, || self.parse_sup_prototype_functions()))
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_free_function_prototype,
+            Parser::parse_comp_global_constant,
+            Parser::parse_global_use_statement,
+            Parser::parse_class_prototype,
+            Parser::parse_sup_prototype_extension,
+            Parser::parse_sup_prototype_functions);
         Ok(p1)
     }
 
-    fn parse_class_prototype(&mut self) -> ParserResult<ClassPrototypeAst> {
+    fn parse_class_prototype(&mut self) -> ParserResult<ModuleMemberAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::Cls));
-        let p3 = parse_once!(self, || self.parse_upper_identifier());
-        let p4 = parse_optional!(self, || self.parse_generic_parameters());
-        let p5 = parse_optional!(self, || self.parse_where_block());
-        let p6 = parse_once!(self, || self.parse_class_implementation());
-        Ok(ClassPrototypeAst::new(
-            c1,
-            p1,
-            p2,
-            TypeAst::from(p3),
-            p4,
-            p5,
-            p6,
-        ))
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let p2 = parse_once!(self, Parser::parse_keyword_cls);
+        let p3 = parse_once!(self, Parser::parse_upper_identifier);
+        let p4 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p5 = parse_optional!(self, Parser::parse_where_block);
+        let p6 = parse_once!(self, Parser::parse_class_implementation);
+        Ok(ModuleMemberAst::Class(ClassPrototypeAst::new(c1, p1, p2, TypeAst::from(p3), p4, p5, p6)))
     }
 
     fn parse_class_implementation(&mut self) -> ParserResult<ClassImplementationAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_curly_brace());
-        let p2 = parse_zero_or_more!(self, || self.parse_class_member(), || self.parse_token_no_token());
-        let p3 = parse_once!(self, || self.parse_token_right_curly_brace());
+        let p1 = parse_once!(self, Parser::parse_token_left_curly_brace);
+        let p2 = parse_zero_or_more!(self, Parser::parse_class_member, Parser::parse_token_no_token);
+        let p3 = parse_once!(self, Parser::parse_token_right_curly_brace);
         Ok(ClassImplementationAst::new(c1, p1, p2, p3))
     }
 
     fn parse_class_member(&mut self) -> ParserResult<ClassMemberAst> {
-        let p1 = parse_once!(self, || self.parse_class_attribute());
+        let p1 = parse_once!(self, Parser::parse_class_attribute);
         Ok(ClassMemberAst::Attr(p1))
     }
 
     fn parse_class_attribute(&mut self) -> ParserResult<ClassAttributeAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let p2 = parse_once!(self, || self.parse_identifier());
-        let p3 = parse_once!(self, || self.parse_token_colon());
-        let p4 = parse_once!(self, || self.parse_type());
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        let p3 = parse_once!(self, Parser::parse_token_colon);
+        let p4 = parse_once!(self, Parser::parse_type);
         Ok(ClassAttributeAst::new(c1, p1, p2, p3, p4))
     }
 
-    fn parse_sup_prototype_functions(&mut self) -> ParserResult<SupPrototypeFunctionsAst> {
+    fn parse_sup_prototype_functions(&mut self) -> ParserResult<ModuleMemberAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Sup));
-        let p2 = parse_optional!(self, || self.parse_generic_parameters());
-        let p3 = parse_once!(self, || self.parse_type());
-        let p4 = parse_optional!(self, || self.parse_where_block());
-        let p5 = parse_once!(self, || self.parse_sup_implementation());
-        Ok(SupPrototypeFunctionsAst::new(c1, p1, p2, p3, p4, p5))
+        let p1 = parse_once!(self, Parser::parse_keyword_sup);
+        let p2 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p3 = parse_once!(self, Parser::parse_type);
+        let p4 = parse_optional!(self, Parser::parse_where_block);
+        let p5 = parse_once!(self, Parser::parse_sup_implementation);
+        Ok(ModuleMemberAst::SupFunctions(SupPrototypeFunctionsAst::new(c1, p1, p2, p3, p4, p5)))
     }
 
-    fn parse_sup_prototype_extension(&mut self) -> ParserResult<SupPrototypeExtensionAst> {
+    fn parse_sup_prototype_extension(&mut self) -> ParserResult<ModuleMemberAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Sup));
-        let p2 = parse_optional!(self, || self.parse_generic_parameters());
-        let p3 = parse_once!(self, || self.parse_type());
-        let p4 = parse_once!(self, || self.parse_keyword(Keywords::Ext));
-        let p5 = parse_once!(self, || self.parse_type());
-        let p6 = parse_optional!(self, || self.parse_where_block());
-        let p7 = parse_once!(self, || self.parse_sup_implementation());
-        Ok(SupPrototypeExtensionAst::new(
-            c1, p1, p2, p3, p4, p5, p6, p7,
-        ))
+        let p1 = parse_once!(self, Parser::parse_keyword_sup);
+        let p2 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p3 = parse_once!(self, Parser::parse_type);
+        let p4 = parse_once!(self, Parser::parse_keyword_ext);
+        let p5 = parse_once!(self, Parser::parse_type);
+        let p6 = parse_optional!(self, Parser::parse_where_block);
+        let p7 = parse_once!(self, Parser::parse_sup_implementation);
+        Ok(ModuleMemberAst::SupExtension(SupPrototypeExtensionAst::new(c1, p1, p2, p3, p4, p5, p6, p7)))
     }
 
     fn parse_sup_implementation(&mut self) -> ParserResult<SupImplementationAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_curly_brace());
-        let p2 = parse_zero_or_more!(self, || self.parse_sup_member(), || self
-            .parse_token_no_token());
-        let p3 = parse_once!(self, || self.parse_token_right_curly_brace());
+        let p1 = parse_once!(self, Parser::parse_token_left_curly_brace);
+        let p2 = parse_zero_or_more!(self, Parser::parse_sup_member, Parser::parse_token_no_token);
+        let p3 = parse_once!(self, Parser::parse_token_right_curly_brace);
         Ok(SupImplementationAst::new(c1, p1, p2, p3))
     }
 
     fn parse_sup_member(&mut self) -> ParserResult<SupMemberAst> {
-        let p1 = parse_alternate!(
-            self,
-            || SupMemberAst::Method(parse_once!(self, || self.parse_sup_method_prototype())),
-            || SupMemberAst::Typedef(parse_once!(self, || self.parse_sup_use_statement()))
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_sup_method_prototype,
+            Parser::parse_sup_use_statement);
         Ok(p1)
     }
 
-    fn parse_sup_method_prototype(&mut self) -> ParserResult<FunctionPrototypeAst> {
-        let p1 = parse_once!(self, || self.parse_function_prototype());
-        Ok(p1)
+    fn parse_sup_method_prototype(&mut self) -> ParserResult<SupMemberAst> {
+        let p1 = parse_once!(self, Parser::parse_function_prototype);
+        Ok(SupMemberAst::Method(p1))
     }
 
-    fn parse_sup_use_statement(&mut self) -> ParserResult<SupUseStatementAst> {
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self
-            .parse_token_newline());
-        let mut p2 = parse_once!(self, || self.parse_use_statement());
+    fn parse_sup_use_statement(&mut self) -> ParserResult<SupMemberAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let StatementAst::Use(mut p2) = parse_once!(self, Parser::parse_use_statement) else { return Err(SyntaxError::new(c1, "".to_string())) };
         p2.annotations = p1;
-        Ok(p2)
+        Ok(SupMemberAst::Typedef(p2))
+    }
+    
+    fn parse_free_function_prototype(&mut self) -> ParserResult<ModuleMemberAst> {
+        let p1 = parse_once!(self, Parser::parse_function_prototype);
+        Ok(ModuleMemberAst::Function(p1))
     }
 
     fn parse_function_prototype(&mut self) -> ParserResult<FunctionPrototypeAst> {
-        let p1 = parse_alternate!(
-            self,
-            || FunctionPrototypeAst::Subroutine(parse_once!(self, || self.parse_subroutine_prototype())),
-            || FunctionPrototypeAst::Coroutine(parse_once!(self, || self.parse_coroutine_prototype()))
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_subroutine_prototype,
+            Parser::parse_coroutine_prototype);
         Ok(p1)
     }
 
-    fn parse_subroutine_prototype(&mut self) -> ParserResult<SubroutinePrototypeAst> {
+    fn parse_subroutine_prototype(&mut self) -> ParserResult<FunctionPrototypeAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::Fun));
-        let p3 = parse_once!(self, || self.parse_identifier());
-        let p4 = parse_optional!(self, || self.parse_generic_parameters());
-        let p5 = parse_once!(self, || self.parse_function_parameters());
-        let p6 = parse_once!(self, || self.parse_token_rightward_arrow());
-        let p7 = parse_once!(self, || self.parse_type());
-        let p8 = parse_optional!(self, || self.parse_where_block());
-        let p9 = parse_once!(self, || self.parse_function_implementation());
-        Ok(SubroutinePrototypeAst(FunctionPrototypeBaseAst::new(
-            c1, p1, p2, p3, p4, p5, p6, p7, p8, p9,
-        )))
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let p2 = parse_once!(self, Parser::parse_keyword_fun);
+        let p3 = parse_once!(self, Parser::parse_identifier);
+        let p4 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p5 = parse_once!(self, Parser::parse_function_parameters);
+        let p6 = parse_once!(self, Parser::parse_token_rightward_arrow);
+        let p7 = parse_once!(self, Parser::parse_type);
+        let p8 = parse_optional!(self, Parser::parse_where_block);
+        let p9 = parse_once!(self, Parser::parse_function_implementation);
+        Ok(FunctionPrototypeAst::Subroutine(SubroutinePrototypeAst(FunctionPrototypeBaseAst::new(c1, p1, p2, p3, p4, p5, p6, p7, p8, p9))))
     }
 
-    fn parse_coroutine_prototype(&mut self) -> ParserResult<CoroutinePrototypeAst> {
+    fn parse_coroutine_prototype(&mut self) -> ParserResult<FunctionPrototypeAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::Cor));
-        let p3 = parse_once!(self, || self.parse_identifier());
-        let p4 = parse_optional!(self, || self.parse_generic_parameters());
-        let p5 = parse_once!(self, || self.parse_function_parameters());
-        let p6 = parse_once!(self, || self.parse_token_rightward_arrow());
-        let p7 = parse_once!(self, || self.parse_type());
-        let p8 = parse_optional!(self, || self.parse_where_block());
-        let p9 = parse_once!(self, || self.parse_function_implementation());
-        Ok(CoroutinePrototypeAst(FunctionPrototypeBaseAst::new(
-            c1, p1, p2, p3, p4, p5, p6, p7, p8, p9,
-        )))
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let p2 = parse_once!(self, Parser::parse_keyword_cor);
+        let p3 = parse_once!(self, Parser::parse_identifier);
+        let p4 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p5 = parse_once!(self, Parser::parse_function_parameters);
+        let p6 = parse_once!(self, Parser::parse_token_rightward_arrow);
+        let p7 = parse_once!(self, Parser::parse_type);
+        let p8 = parse_optional!(self, Parser::parse_where_block);
+        let p9 = parse_once!(self, Parser::parse_function_implementation);
+        Ok(FunctionPrototypeAst::Coroutine(CoroutinePrototypeAst(FunctionPrototypeBaseAst::new(c1, p1, p2, p3, p4, p5, p6, p7, p8, p9))))
     }
 
     fn parse_function_implementation(&mut self) -> ParserResult<FunctionImplementationAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_curly_brace());
-        let p2 = parse_zero_or_more!(self, || self.parse_function_member(), || self.parse_token_no_token());
-        let p3 = parse_once!(self, || self.parse_token_right_curly_brace());
+        let p1 = parse_once!(self, Parser::parse_token_left_curly_brace);
+        let p2 = parse_zero_or_more!(self, Parser::parse_function_member, Parser::parse_token_no_token);
+        let p3 = parse_once!(self, Parser::parse_token_right_curly_brace);
         Ok(FunctionImplementationAst::new(c1, p1, p2, p3))
     }
 
     fn parse_function_member(&mut self) -> ParserResult<FunctionMemberAst> {
-        let p1 = parse_once!(self, || self.parse_statement());
+        let p1 = parse_once!(self, Parser::parse_statement);
         Ok(p1)
     }
 
     fn parse_function_call_arguments(&mut self) -> ParserResult<FunctionCallArgumentGroupAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_parenthesis());
-        let p2 = parse_zero_or_more!(self, || self.parse_function_call_argument(), || self.parse_token_comma());
-        let p3 = parse_once!(self, || self.parse_token_right_parenthesis());
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_zero_or_more!(self, Parser::parse_function_call_argument, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
         Ok(FunctionCallArgumentGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_function_call_argument(&mut self) -> ParserResult<FunctionCallArgumentAst> {
-        let p1 = parse_alternate!(
-            self,
-            || parse_once!(self, self.parse_function_call_argument_named()),
-            || parse_once!(self, self.parse_function_call_argument_unnamed())
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_function_call_argument_named,
+            Parser::parse_function_call_argument_unnamed);
         Ok(p1)
     }
 
     fn parse_function_call_argument_unnamed(&mut self) -> ParserResult<FunctionCallArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_convention());
-        let p2 = parse_optional!(self, || self.parse_token_double_dot());
-        let p3 = parse_once!(self, || self.parse_expression());
-        Ok(FunctionCallArgumentAst::new_unnamed_argument(
-            c1, p1, p2, p3,
-        ))
+        let p1 = parse_once!(self, Parser::parse_convention);
+        let p2 = parse_optional!(self, Parser::parse_token_double_dot);
+        let p3 = parse_once!(self, Parser::parse_expression);
+        Ok(FunctionCallArgumentAst::new_unnamed_argument(c1, p1, p2, p3))
     }
 
     fn parse_function_call_argument_named(&mut self) -> ParserResult<FunctionCallArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_identifier());
-        let p2 = parse_once!(self, || self.parse_token_assign());
-        let p3 = parse_once!(self, || self.parse_convention());
-        let p4 = parse_once!(self, || self.parse_expression());
-        Ok(FunctionCallArgumentAst::new_named_argument(
-            c1, p1, p2, p3, p4,
-        ))
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_convention);
+        let p4 = parse_once!(self, Parser::parse_expression);
+        Ok(FunctionCallArgumentAst::new_named_argument(c1, p1, p2, p3, p4))
     }
 
     fn parse_function_parameters(&mut self) -> ParserResult<FunctionParameterGroupAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_parenthesis());
-        let p2 = parse_zero_or_more!(self, || self.parse_function_parameter(), || self
-            .parse_token_comma());
-        let p3 = parse_once!(self, || self.parse_token_right_parenthesis());
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_zero_or_more!(self, Parser::parse_function_parameter, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
         Ok(FunctionParameterGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_function_parameter(&mut self) -> ParserResult<FunctionParameterAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_function_parameter_variadic(),
-            || self.parse_function_parameter_optional(),
-            || self.parse_function_parameter_required(),
-            || self.parse_function_parameter_self()
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_function_parameter_variadic,
+            Parser::parse_function_parameter_optional,
+            Parser::parse_function_parameter_required,
+            Parser::parse_function_parameter_self);
         Ok(p1)
     }
 
     fn parse_function_parameter_self(&mut self) -> ParserResult<FunctionParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_optional!(self, || self.parse_keyword(Keywords::Mut));
-        let p2 = parse_once!(self, || self.parse_convention());
-        let p3 = parse_once!(self, || self.parse_self_keyword());
+        let p1 = parse_optional!(self, Parser::parse_keyword_mut);
+        let p2 = parse_once!(self, Parser::parse_convention);
+        let p3 = parse_once!(self, Parser::parse_self_identifier);
         Ok(FunctionParameterAst::new_self(c1, p1, p2, p3))
     }
 
     fn parse_function_parameter_required(&mut self) -> ParserResult<FunctionParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_local_variable());
-        let p2 = parse_once!(self, || self.parse_token_primitive(TokenType::TkColon));
-        let p3 = parse_once!(self, || self.parse_convention());
-        let p4 = parse_once!(self, || self.parse_type());
+        let p1 = parse_once!(self, Parser::parse_local_variable);
+        let p2 = parse_once!(self, Parser::parse_token_colon);
+        let p3 = parse_once!(self, Parser::parse_convention);
+        let p4 = parse_once!(self, Parser::parse_type);
         Ok(FunctionParameterAst::new_required(c1, p1, p2, p3, p4))
     }
 
     fn parse_function_parameter_optional(&mut self) -> ParserResult<FunctionParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_local_variable());
-        let p2 = parse_once!(self, || self.parse_token_primitive(TokenType::TkColon));
-        let p3 = parse_once!(self, || self.parse_convention());
-        let p4 = parse_once!(self, || self.parse_type());
-        let p5 = parse_once!(self, || self.parse_token_assign());
-        let p6 = parse_once!(self, || self.parse_expression());
+        let p1 = parse_once!(self, Parser::parse_local_variable);
+        let p2 = parse_once!(self, Parser::parse_token_colon);
+        let p3 = parse_once!(self, Parser::parse_convention);
+        let p4 = parse_once!(self, Parser::parse_type);
+        let p5 = parse_once!(self, Parser::parse_token_assign);
+        let p6 = parse_once!(self, Parser::parse_expression);
         Ok(FunctionParameterAst::new_optional(
             c1, p1, p2, p3, p4, p5, p6,
         ))
@@ -479,245 +465,190 @@ impl Parser {
 
     fn parse_function_parameter_variadic(&mut self) -> ParserResult<FunctionParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_double_dot());
-        let p2 = parse_once!(self, || self.parse_local_variable());
-        let p3 = parse_once!(self, || self.parse_token_primitive(TokenType::TkColon));
-        let p4 = parse_once!(self, || self.parse_convention());
-        let p5 = parse_once!(self, || self.parse_type());
+        let p1 = parse_once!(self, Parser::parse_token_double_dot);
+        let p2 = parse_once!(self, Parser::parse_local_variable);
+        let p3 = parse_once!(self, Parser::parse_token_colon);
+        let p4 = parse_once!(self, Parser::parse_convention);
+        let p5 = parse_once!(self, Parser::parse_type);
         Ok(FunctionParameterAst::new_variadic(c1, p1, p2, p3, p4, p5))
     }
 
     fn parse_generic_arguments(&mut self) -> ParserResult<GenericArgumentGroupAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_square_bracket());
-        let p2 = parse_zero_or_more!(self, || self.parse_generic_argument(), || self
-            .parse_token_comma());
-        let p3 = parse_once!(self, || self.parse_token_right_square_bracket());
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_zero_or_more!(self, Parser::parse_generic_argument, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
         Ok(GenericArgumentGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_generic_argument(&mut self) -> ParserResult<GenericArgumentAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_generic_type_argument_named(),
-            || self.parse_generic_type_argument_unnamed(),
-            || self.parse_generic_comp_argument_named(),
-            || self.parse_generic_comp_argument_unnamed()
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_generic_type_argument_named,
+            Parser::parse_generic_type_argument_unnamed,
+            Parser::parse_generic_comp_argument_named,
+            Parser::parse_generic_comp_argument_unnamed);
         Ok(p1)
     }
 
     fn parse_generic_type_argument_named(&mut self) -> ParserResult<GenericArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_upper_identifier());
-        let p2 = parse_once!(self, || self.parse_token_assign());
-        let p3 = parse_once!(self, || self.parse_type());
-        Ok(GenericArgumentAst::new_type_named(
-            c1,
-            TypeAst::from(p1),
-            p2,
-            p3,
-        ))
+        let p1 = parse_once!(self, Parser::parse_upper_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_type);
+        Ok(GenericArgumentAst::new_type_named(c1, TypeAst::from(p1), p2, p3))
     }
 
     fn parse_generic_type_argument_unnamed(&mut self) -> ParserResult<GenericArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_type());
+        let p1 = parse_once!(self, Parser::parse_type);
         Ok(GenericArgumentAst::new_type_unnamed(c1, p1))
     }
 
     fn parse_generic_comp_argument_named(&mut self) -> ParserResult<GenericArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_identifier());
-        let p2 = parse_once!(self, || self.parse_token_assign());
-        let p3 = parse_once!(self, || self.parse_global_constant_value());
-        Ok(GenericArgumentAst::new_comp_named(
-            c1,
-            TypeAst::from(p1),
-            p2,
-            p3,
-        ))
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_comp_value);
+        Ok(GenericArgumentAst::new_comp_named(c1, TypeAst::from(p1), p2, p3))
     }
 
     fn parse_generic_comp_argument_unnamed(&mut self) -> ParserResult<GenericArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_global_constant_value());
+        let p1 = parse_once!(self, Parser::parse_comp_value);
         Ok(GenericArgumentAst::new_comp_unnamed(c1, p1))
     }
 
     fn parse_generic_parameters(&mut self) -> ParserResult<GenericParameterGroupAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_square_bracket());
-        let p2 = parse_zero_or_more!(self, || self.parse_generic_parameter(), || self
-            .parse_token_comma());
-        let p3 = parse_once!(self, || self.parse_token_right_square_bracket());
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_zero_or_more!(self, Parser::parse_generic_parameter, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
         Ok(GenericParameterGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_generic_parameter(&mut self) -> ParserResult<GenericParameterAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_generic_comp_parameter_variadic(),
-            || self.parse_generic_comp_parameter_optional(),
-            || self.parse_generic_comp_parameter_required(),
-            || self.parse_generic_type_parameter_variadic(),
-            || self.parse_generic_type_parameter_optional(),
-            || self.parse_generic_type_parameter_required()
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_generic_comp_parameter_variadic,
+            Parser::parse_generic_comp_parameter_optional,
+            Parser::parse_generic_comp_parameter_required,
+            Parser::parse_generic_type_parameter_variadic,
+            Parser::parse_generic_type_parameter_optional,
+            Parser::parse_generic_type_parameter_required);
         Ok(p1)
     }
 
     fn parse_generic_type_parameter_required(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_upper_identifier());
-        let p2 = parse_optional!(self, || self.parse_generic_inline_constraints());
-        Ok(GenericParameterAst::new_type_required(
-            c1,
-            TypeAst::from(p1),
-            p2,
-        ))
+        let p1 = parse_once!(self, Parser::parse_upper_identifier);
+        let p2 = parse_optional!(self, Parser::parse_generic_inline_constraints);
+        Ok(GenericParameterAst::new_type_required(c1, TypeAst::from(p1), p2))
     }
 
     fn parse_generic_type_parameter_optional(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_upper_identifier());
-        let p2 = parse_optional!(self, || self.parse_generic_inline_constraints());
-        let p3 = parse_once!(self, || self.parse_token_assign());
-        let p4 = parse_once!(self, || self.parse_type());
-        Ok(GenericParameterAst::new_type_optional(
-            c1,
-            TypeAst::from(p1),
-            p2,
-            p3,
-            p4,
-        ))
+        let p1 = parse_once!(self, Parser::parse_upper_identifier);
+        let p2 = parse_optional!(self, Parser::parse_generic_inline_constraints);
+        let p3 = parse_once!(self, Parser::parse_token_assign);
+        let p4 = parse_once!(self, Parser::parse_type);
+        Ok(GenericParameterAst::new_type_optional(c1, TypeAst::from(p1), p2, p3, p4))
     }
 
     fn parse_generic_type_parameter_variadic(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_double_dot());
-        let p2 = parse_once!(self, || self.parse_upper_identifier());
-        let p3 = parse_optional!(self, || self.parse_generic_inline_constraints());
-        Ok(GenericParameterAst::new_type_variadic(
-            c1,
-            p1,
-            TypeAst::from(p2),
-            p3,
-        ))
+        let p1 = parse_once!(self, Parser::parse_token_double_dot);
+        let p2 = parse_once!(self, Parser::parse_upper_identifier);
+        let p3 = parse_optional!(self, Parser::parse_generic_inline_constraints);
+        Ok(GenericParameterAst::new_type_variadic(c1, p1, TypeAst::from(p2), p3))
     }
 
     fn parse_generic_comp_parameter_required(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Cmp));
-        let p2 = parse_once!(self, || self.parse_identifier());
-        let p3 = parse_once!(self, || self.parse_token_colon());
-        let p4 = parse_once!(self, || self.parse_type());
-        Ok(GenericParameterAst::new_comp_required(
-            c1,
-            p1,
-            TypeAst::from(p2),
-            p3,
-            p4,
-        ))
+        let p1 = parse_once!(self, Parser::parse_keyword_cmp);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        let p3 = parse_once!(self, Parser::parse_token_colon);
+        let p4 = parse_once!(self, Parser::parse_type);
+        Ok(GenericParameterAst::new_comp_required(c1, p1, TypeAst::from(p2), p3, p4))
     }
 
     fn parse_generic_comp_parameter_optional(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Cmp));
-        let p2 = parse_once!(self, || self.parse_identifier());
-        let p3 = parse_once!(self, || self.parse_token_colon());
-        let p4 = parse_once!(self, || self.parse_type());
-        let p5 = parse_once!(self, || self.parse_token_assign());
-        let p6 = parse_once!(self, || self.parse_global_constant_value());
-        Ok(GenericParameterAst::new_comp_optional(
-            c1,
-            p1,
-            TypeAst::from(p2),
-            p3,
-            p4,
-            p5,
-            p6,
-        ))
+        let p1 = parse_once!(self, Parser::parse_keyword_cmp);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        let p3 = parse_once!(self, Parser::parse_token_colon);
+        let p4 = parse_once!(self, Parser::parse_type);
+        let p5 = parse_once!(self, Parser::parse_token_assign);
+        let p6 = parse_once!(self, Parser::parse_comp_value);
+        Ok(GenericParameterAst::new_comp_optional(c1, p1, TypeAst::from(p2), p3, p4, p5, p6))
     }
 
     fn parse_generic_comp_parameter_variadic(&mut self) -> ParserResult<GenericParameterAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Cmp));
-        let p2 = parse_once!(self, || self.parse_token_double_dot());
-        let p3 = parse_once!(self, || self.parse_identifier());
-        let p4 = parse_once!(self, || self.parse_token_colon());
-        let p5 = parse_once!(self, || self.parse_type());
-        Ok(GenericParameterAst::new_comp_variadic(
-            c1,
-            p1,
-            p2,
-            TypeAst::from(p3),
-            p4,
-            p5,
-        ))
+        let p1 = parse_once!(self, Parser::parse_keyword_cmp);
+        let p2 = parse_once!(self, Parser::parse_token_double_dot);
+        let p3 = parse_once!(self, Parser::parse_identifier);
+        let p4 = parse_once!(self, Parser::parse_token_colon);
+        let p5 = parse_once!(self, Parser::parse_type);
+        Ok(GenericParameterAst::new_comp_variadic(c1, p1, p2, TypeAst::from(p3), p4, p5))
     }
 
     fn parse_generic_inline_constraints(&mut self) -> ParserResult<GenericParameterConstraintsAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_colon());
-        let p2 = parse_one_or_more!(self, || self.parse_type(), || self.parse_token_comma());
+        let p1 = parse_once!(self, Parser::parse_token_colon);
+        let p2 = parse_one_or_more!(self, Parser::parse_type, Parser::parse_token_comma);
         Ok(GenericParameterConstraintsAst::new(c1, p1, p2))
     }
 
     fn parse_where_block(&mut self) -> ParserResult<WhereBlockAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Where));
-        let p2 = parse_once!(self, || self.parse_where_block_constraints_group());
+        let p1 = parse_once!(self, Parser::parse_keyword_where);
+        let p2 = parse_once!(self, Parser::parse_where_block_constraints_group);
         Ok(WhereBlockAst::new(c1, p1, p2))
     }
 
     fn parse_where_block_constraints_group(&mut self) -> ParserResult<WhereConstraintsGroupAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_square_bracket());
-        let p2 = parse_one_or_more!(self, || self.parse_where_block_constraints(), || self
-            .parse_token_comma());
-        let p3 = parse_once!(self, || self.parse_token_right_square_bracket());
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_one_or_more!(self, Parser::parse_where_block_constraints, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
         Ok(WhereConstraintsGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_where_block_constraints(&mut self) -> ParserResult<WhereConstraintsAst> {
         let c1 = self.current_pos();
-        let p1 = parse_one_or_more!(self, || self.parse_type(), || self.parse_token_comma());
-        let p2 = parse_once!(self, || self.parse_token_colon());
-        let p3 = parse_once!(self, || self.parse_type());
+        let p1 = parse_one_or_more!(self, Parser::parse_type, Parser::parse_token_comma);
+        let p2 = parse_once!(self, Parser::parse_token_colon);
+        let p3 = parse_once!(self, Parser::parse_type);
         Ok(WhereConstraintsAst::new(c1, p1, p2, p3))
     }
 
     fn parse_annotation(&mut self) -> ParserResult<AnnotationAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_primitive(TokenType::TkAt));
-        let p2 = parse_once!(self, || self.parse_identifier());
+        let p1 = parse_once!(self, Parser::parse_token_at);
+        let p2 = parse_once!(self, Parser::parse_identifier);
         Ok(AnnotationAst::new(c1, p1, p2))
     }
 
     fn parse_expression(&mut self) -> ParserResult<ExpressionAst> {
-        let p1 = parse_once!(self, || self.parse_binary_expression_precedence_level_1());
+        let p1 = parse_once!(self, Parser::parse_binary_expression_precedence_level_1);
         Ok(p1)
     }
 
-    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(&mut self, op: fn(&mut Parser) -> ParserResult<TokenAst>, rhs: fn(&mut Parser) -> ParserResult<ExpressionAst>,
-    ) -> ParserResult<(TokenAst, T)> {
-        let p1 = parse_once!(self, || op(self));
-        let p2 = parse_once!(self, || rhs(self));
+    fn parse_expression_statement(&mut self) -> ParserResult<StatementAst> {
+        let p1 = parse_once!(self, Parser::parse_expression);
+        Ok(StatementAst::Expression(p1))
+    }
+
+    fn parse_binary_expression_precedence_level_n_rhs<T: ToBinaryExpression + 'static>(&mut self, op: ParserRule<TokenAst>, rhs: ParserRule<T>) -> ParserResult<(TokenAst, T)> {
+        let p1 = parse_once!(self, op);
+        let p2 = parse_once!(self, rhs);
         Ok((p1, p2))
     }
 
-    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(&mut self, lhs: fn(&mut Parser) -> ParserResult<ExpressionAst>, op: fn(&mut Parser) -> ParserResult<TokenAst>, rhs: fn(&mut Parser) -> ParserResult<ExpressionAst>) -> ParserResult<ExpressionAst> {
+    fn parse_binary_expression_precedence_level_n<T: ToBinaryExpression + 'static>(&mut self, lhs: ParserRule<ExpressionAst>, op: ParserRule<TokenAst>, rhs: ParserRule<T>) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || lhs(self));
-        let p2 = parse_optional!(self, || self
-            .parse_binary_expression_precedence_level_n_rhs(op, rhs));
-
-        Ok(if let Some(p2) = p2 {
-            T::to_binary_expression(c1, p1, p2.0, p2.1)
-        } else {
-            p1
-        })
+        let p1 = parse_once!(self, lhs);
+        let p2 = parse_optional!(self, |s| Parser::parse_binary_expression_precedence_level_n_rhs(s, op, rhs));
+        Ok(if let Some(p2) = p2 { T::to_binary_expression(c1, p1, p2.0, p2.1) } else { p1 })
     }
 
     fn parse_binary_expression_precedence_level_1(&mut self) -> ParserResult<ExpressionAst> {
@@ -764,1507 +695,1169 @@ impl Parser {
 
     fn parse_unary_expression(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_unary_op(), || self.parse_token_no_token());
-        let p2 = parse_once!(self, || self.parse_postfix_expression());
+        let p1 = parse_zero_or_more!(self, Parser::parse_unary_op, Parser::parse_token_no_token);
+        let p2 = parse_once!(self, Parser::parse_postfix_expression);
         p1.into_iter().rev().fold(Ok(p2), |acc, x| { Ok(ExpressionAst::Unary(UnaryExpressionAst::new(c1, x, Box::from(acc?), ))) })
     }
 
     fn parse_postfix_expression(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_primary_expression());
-        let p2 = parse_zero_or_more!(self, || self.parse_postfix_op(), || self.parse_token_no_token());
+        let p1 = parse_once!(self, Parser::parse_primary_expression);
+        let p2 = parse_zero_or_more!(self, Parser::parse_postfix_op, Parser::parse_token_no_token);
         p2.into_iter().fold(Ok(p1), |acc, x| { Ok(ExpressionAst::Postfix(PostfixExpressionAst::new(c1, Box::from(acc?), x, ))) })
     }
 
     fn parse_primary_expression(&mut self) -> ParserResult<ExpressionAst> {
-        let p1 = parse_alternate!(
-            self,
-            || ExpressionAst::Primary(PrimaryExpressionAst::Literal(self.parse_literal())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::ObjectInitializer(self.parse_object_initializer())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Parenthesized(self.parse_parenthesized_expression())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Type(self.parse_type())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Identifier(self.parse_identifier())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Case(self.parse_case_expression())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Loop(self.parse_loop_expression())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Gen(self.parse_gen_expression())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::With(self.parse_with_expression())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::InnerScope(self.parse_inner_scope())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::SelfIdentifier(self.parse_self_keyword())),
-            || ExpressionAst::Primary(PrimaryExpressionAst::Fold(self.parse_token_double_dot())));
+        let p1 = parse_alternate!(self,
+            Parser::parse_primary_expression_literal,
+            Parser::parse_primary_expression_object_initializer,
+            Parser::parse_primary_expression_parenthesized,
+            Parser::parse_primary_expression_type,
+            Parser::parse_primary_expression_identifier,
+            Parser::parse_case_expression,
+            Parser::parse_loop_expression,
+            Parser::parse_gen_expression,
+            Parser::parse_with_expression,
+            Parser::parse_primary_expression_inner_scope,
+            Parser::parse_primary_expression_self_identifier,
+            Parser::parse_primary_expression_fold_operation);
         Ok(p1)
     }
 
-    fn parse_parenthesized_expression(&mut self) -> ParserResult<ParenthesizedExpressionAst> {
+    fn parse_primary_expression_literal(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_once!(self, Parser::parse_literal);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Literal(p1)))
+    }
+
+    fn parse_primary_expression_object_initializer(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_once!(self, Parser::parse_object_initializer);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::ObjectInitializer(p1)))
+    }
+
+    fn parse_primary_expression_inner_scope(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_once!(self, Parser::parse_inner_scope);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::InnerScope(p1)))
+    }
+
+    fn parse_primary_expression_fold_operation(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_left_parenthesis());
-        let p2 = parse_once!(self, || self.parse_expression());
-        let p3 = parse_once!(self, || self.parse_token_right_parenthesis());
+        let p1 = parse_once!(self, Parser::parse_token_double_dot);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Fold(p1)))
+    }
+
+    fn parse_primary_expression_parenthesized(&mut self) -> ParserResult<ParenthesizedExpressionAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_once!(self, Parser::parse_expression);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
         Ok(ParenthesizedExpressionAst::new(c1, p1, Box::from(p2), p3))
     }
 
-    fn parse_self_keyword(&mut self) -> ParserResult<IdentifierAst> {
+    fn parse_primary_expression_type(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_once!(self, Parser::parse_type);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Type(p1)))
+    }
+
+    fn parse_primary_expression_identifier(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Identifier(p1)))
+    }
+
+    fn parse_primary_expression_self_identifier(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::SelfVal));
+        let p1 = parse_once!(self, Parser::parse_self_identifier);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Identifier(p1)))
+    }
+
+    fn parse_self_identifier(&mut self) -> ParserResult<IdentifierAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_keyword_self_val);
         Ok(IdentifierAst::new(c1, p1.metadata))
     }
 
-    fn parse_case_expression(&mut self) -> ParserResult<CaseExpressionAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_case_expression_patterns(),
-            || self.parse_case_expression_simple()
-        );
-        Ok(p1)
+    fn parse_case_expression(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_case_expression_patterns,
+            Parser::parse_case_expression_simple);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Case(p1)))
     }
 
     fn parse_case_expression_patterns(&mut self) -> ParserResult<CaseExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Case));
-        let p2 = parse_once!(self, || self.parse_expression());
-        let p3 = parse_once!(self, || self.parse_keyword(Keywords::Of));
-        let p4 = parse_one_or_more!(self, || self.parse_case_expression_branch(), || self.parse_token_no_token());
+        let p1 = parse_once!(self, Parser::parse_keyword_case);
+        let p2 = parse_once!(self, Parser::parse_expression);
+        let p3 = parse_once!(self, Parser::parse_keyword_of);
+        let p4 = parse_one_or_more!(self, Parser::parse_case_expression_branch, Parser::parse_token_no_token);
         Ok(CaseExpressionAst::new(c1, p1, Box::from(p2), p3, p4))
     }
 
     fn parse_case_expression_simple(&mut self) -> ParserResult<CaseExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Case));
-        let p2 = parse_once!(self, || self.parse_expression());
-        let p3 = parse_once!(self, || self.parse_inner_scope());
-        let p4 = parse_zero_or_more!(self, || self.parse_case_expression_branch_simple(), || self.parse_token_no_token());
+        let p1 = parse_once!(self, Parser::parse_keyword_case);
+        let p2 = parse_once!(self, Parser::parse_expression);
+        let p3 = parse_once!(self, Parser::parse_inner_scope);
+        let p4 = parse_zero_or_more!(self, Parser::parse_case_expression_branch_simple, Parser::parse_token_no_token);
         Ok(CaseExpressionAst::new_from_simple(c1, p1, Box::from(p2), p3, p4))
     }
 
-    fn parse_loop_expression(&mut self) -> ParserResult<LoopExpressionAst> {
+    fn parse_loop_expression(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Loop));
-        let p2 = parse_once!(self, || self.parse_loop_expression_condition());
-        let p3 = parse_once!(self, || self.parse_inner_scope());
-        let p4 = parse_optional!(self, || self.parse_loop_else_statement());
-        Ok(LoopExpressionAst::new(c1, p1, p2, p3, p4))
+        let p1 = parse_once!(self, Parser::parse_keyword_loop);
+        let p2 = parse_once!(self, Parser::parse_loop_expression_condition);
+        let p3 = parse_once!(self, Parser::parse_inner_scope);
+        let p4 = parse_optional!(self, Parser::parse_loop_else_statement);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Loop(LoopExpressionAst::new(c1, p1, p2, p3, p4))))
     }
 
     fn parse_loop_expression_condition(&mut self) -> ParserResult<LoopConditionAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_loop_expression_condition_iterable(),
-            || self.parse_loop_expression_condition_boolean()
-        );
+        let p1 = parse_alternate!(self,
+            Parser::parse_loop_expression_condition_iterable,
+            Parser::parse_loop_expression_condition_boolean);
         Ok(p1)
     }
 
     fn parse_loop_expression_condition_boolean(&mut self) -> ParserResult<LoopConditionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_expression());
+        let p1 = parse_once!(self, Parser::parse_expression);
         Ok(LoopConditionAst::new_boolean(c1, Box::new(p1)))
     }
 
     fn parse_loop_expression_condition_iterable(&mut self) -> ParserResult<LoopConditionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_local_variable());
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::In));
-        let p3 = parse_once!(self, || self.parse_expression());
+        let p1 = parse_once!(self, Parser::parse_local_variable);
+        let p2 = parse_once!(self, Parser::parse_keyword_in);
+        let p3 = parse_once!(self, Parser::parse_expression);
         Ok(LoopConditionAst::new_iterable(c1, p1, p2, Box::new(p3)))
     }
 
     fn parse_loop_else_statement(&mut self) -> ParserResult<LoopElseStatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Else));
-        let p2 = parse_once!(self, || self.parse_inner_scope());
+        let p1 = parse_once!(self, Parser::parse_keyword_else);
+        let p2 = parse_once!(self, Parser::parse_inner_scope);
         Ok(LoopElseStatementAst::new(c1, p1, p2))
     }
 
-    fn parse_gen_expression(&mut self) -> ParserResult<GenExpressionAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_gen_expression_unroll(),
-            || self.parse_gen_expression_normal()
-        );
+    fn parse_gen_expression(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_gen_expression_unroll,
+            Parser::parse_gen_expression_normal);
         Ok(p1)
     }
 
-    fn parse_gen_expression_normal(&mut self) -> ParserResult<GenExpressionAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_gen_expression_normal_with_expression(),
-            || self.parse_gen_expression_normal_no_expression()
-        );
+    fn parse_gen_expression_normal(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_gen_expression_normal_with_expression,
+            Parser::parse_gen_expression_normal_no_expression);
         Ok(p1)
     }
 
-    fn parse_gen_expression_normal_no_expression(&mut self) -> ParserResult<GenExpressionAst> {
+    fn parse_gen_expression_normal_no_expression(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Gen));
-        Ok(GenExpressionAst::new(c1, p1, None, ConventionAst::Mov { pos: c1 }, None, ))
+        let p1 = parse_once!(self, Parser::parse_keyword_gen);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Gen(GenExpressionAst::new(c1, p1, None, ConventionAst::Mov { pos: c1 }, None, ))))
     }
 
-    fn parse_gen_expression_normal_with_expression(&mut self) -> ParserResult<GenExpressionAst> {
+    fn parse_gen_expression_normal_with_expression(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Gen));
-        let p2 = parse_once!(self, || self.parse_convention());
-        let p3 = parse_once!(self, || self.parse_expression());
-        Ok(GenExpressionAst::new(c1, p1, None, p2, Some(Box::new(p3))))
+        let p1 = parse_once!(self, Parser::parse_keyword_gen);
+        let p2 = parse_once!(self, Parser::parse_convention);
+        let p3 = parse_once!(self, Parser::parse_expression);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Gen(GenExpressionAst::new(c1, p1, None, p2, Some(Box::new(p3))))))
     }
 
-    fn parse_gen_expression_unroll(&mut self) -> ParserResult<GenExpressionAst> {
+    fn parse_gen_expression_unroll(&mut self) -> ParserResult<ExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Gen));
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::With));
-        let p3 = parse_once!(self, || self.parse_expression());
-        Ok(GenExpressionAst::new(c1, p1, Some(p2), ConventionAst::Mov { pos: c1 }, Some(Box::new(p3))))
-
+        let p1 = parse_once!(self, Parser::parse_keyword_gen);
+        let p2 = parse_once!(self, Parser::parse_keyword_with);
+        let p3 = parse_once!(self, Parser::parse_expression);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Gen(GenExpressionAst::new(c1, p1, Some(p2), ConventionAst::Mov { pos: c1 }, Some(Box::new(p3))))))
     }
 
     fn parse_with_expression(&mut self) -> ParserResult<WithExpressionAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::With));
-        let p2 = parse_optional!(self, || self.parse_with_expression_lhs_alias());
-        let p3 = parse_once!(self, || self.parse_expression());
-        let p4 = parse_once!(self, || self.parse_inner_scope());
+        let p1 = parse_once!(self, Parser::parse_keyword_with);
+        let p2 = parse_optional!(self, Parser::parse_with_expression_lhs_alias);
+        let p3 = parse_once!(self, Parser::parse_expression);
+        let p4 = parse_once!(self, Parser::parse_inner_scope);
         Ok(WithExpressionAst::new(c1, p1, p2, Box::new(p3), p4))
     }
 
     fn parse_with_expression_lhs_alias(&mut self) -> ParserResult<WithExpressionAliasAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_local_variable());
-        let p2 = parse_once!(self, || self.parse_token_assign());
+        let p1 = parse_once!(self, Parser::parse_local_variable);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
         Ok(WithExpressionAliasAst::new(c1, p1, p2))
     }
 
-    fn parse_ret_statement(&mut self) -> ParserResult<RetStatementAst> {
+    fn parse_ret_statement(&mut self) -> ParserResult<StatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Ret));
-        let p2 = parse_optional!(self, || self.parse_expression());
-        Ok(RetStatementAst::new(c1, p1, p2))
+        let p1 = parse_once!(self, Parser::parse_keyword_ret);
+        let p2 = parse_optional!(self, Parser::parse_expression);
+        Ok(StatementAst::Ret(RetStatementAst::new(c1, p1, p2)))
     }
 
-    fn parse_exit_statement(&mut self) -> ParserResult<LoopControlFlowStatementAst> {
+    fn parse_exit_statement(&mut self) -> ParserResult<StatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_one_or_more!(self, || self.parse_keyword(Keywords::Exit), || self.parse_token_no_token());
-        let p2 = parse_optional!(self, || self.parse_exit_statement_final_action());
-        return Ok(LoopControlFlowStatementAst::new(c1, p1, p2));
+        let p1 = parse_one_or_more!(self, Parser::parse_keyword_exit, Parser::parse_token_no_token);
+        let p2 = parse_optional!(self, Parser::parse_exit_statement_final_action);
+        Ok(StatementAst::LoopControlFlow(LoopControlFlowStatementAst::new(c1, p1, p2)))
     }
 
-    fn parse_exit_statement_final_action(&mut self, ) -> ParserResult<LoopControlFlowStatementFinalPartAst> {
-        let p1 = parse_alternate!(
-            self,
-            || LoopControlFlowStatementFinalPartAst::Skip(self.parse_keyword(Keywords::Skip)),
-            || LoopControlFlowStatementFinalPartAst::Expression(self.parse_expression()));
+    fn parse_exit_statement_final_action(&mut self) -> ParserResult<LoopControlFlowStatementFinalPartAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_exit_statement_then_skip,
+            Parser::parse_exit_statement_returning_value);
         Ok(p1)
     }
 
-    fn parse_skip_statement(&mut self) -> ParserResult<LoopControlFlowStatementAst> {
-        let c1 = self.current_pos();
-        let p1 = parse_one_or_more!(self, || self.parse_keyword(Keywords::Skip), || self.parse_token_no_token());
-        Ok(LoopControlFlowStatementAst::new(c1, p1, None))
+    fn parse_exit_statement_then_skip(&mut self) -> ParserResult<LoopControlFlowStatementFinalPartAst> {
+        let p1 = parse_once!(self, Parser::parse_keyword_skip);
+        Ok(LoopControlFlowStatementFinalPartAst::Skip(p1))
     }
 
-    fn parse_pin_statement(&mut self) -> ParserResult<PinStatementAst> {
-        let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Pin));
-        let p2 = parse_one_or_more!(self, || self.parse_expression(), || self.parse_token_comma());
-        Ok(PinStatementAst::new(c1, p1, p2))
+    fn parse_exit_statement_returning_value(&mut self) -> ParserResult<LoopControlFlowStatementFinalPartAst> {
+        let p1 = parse_once!(self, Parser::parse_expression);
+        Ok(LoopControlFlowStatementFinalPartAst::Expression(p1))
     }
 
-    fn parse_rel_statement(&mut self) -> ParserResult<RelStatementAst> {
+    fn parse_skip_statement(&mut self) -> ParserResult<StatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Rel));
-        let p2 = parse_one_or_more!(self, || self.parse_expression(), || self.parse_token_comma());
-        Ok(RelStatementAst::new(c1, p1, p2))
+        let p1 = parse_one_or_more!(self, Parser::parse_keyword_skip, Parser::parse_token_no_token);
+        Ok(StatementAst::LoopControlFlow(LoopControlFlowStatementAst::new(c1, p1, None)))
+    }
+
+    fn parse_pin_statement(&mut self) -> ParserResult<StatementAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_keyword_pin);
+        let p2 = parse_one_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        Ok(StatementAst::Pin(PinStatementAst::new(c1, p1, p2)))
+    }
+
+    fn parse_rel_statement(&mut self) -> ParserResult<StatementAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_keyword_rel);
+        let p2 = parse_one_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        Ok(StatementAst::Rel(RelStatementAst::new(c1, p1, p2)))
     }
 
     fn parse_inner_scope(&mut self) -> ParserResult<InnerScopeAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_primitive(TokenType::TkLeftCurlyBrace));
-        let p2 = parse_zero_or_more!(self, || self.parse_statement(), || self.parse_token_no_token());
-        let p3 = parse_once!(self, || self.parse_token_primitive(TokenType::TkRightCurlyBrace));
+        let p1 = parse_once!(self, Parser::parse_token_left_curly_brace);
+        let p2 = parse_zero_or_more!(self, Parser::parse_statement, Parser::parse_token_no_token);
+        let p3 = parse_once!(self, Parser::parse_token_right_curly_brace);
         Ok(InnerScopeAst::new(c1, p1, p2, p3))
     }
 
     fn parse_statement(&mut self) -> ParserResult<StatementAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_use_statement().enum_wrapper(Box::new(StatementAst::Use)),
-            || self.parse_let_statement().enum_wrapper(Box::new(StatementAst::Let)),
-            || self.parse_ret_statement().enum_wrapper(Box::new(StatementAst::Ret)),
-            || self.parse_exit_statement().enum_wrapper(Box::new(StatementAst::LoopControlFlow)),
-            || self.parse_skip_statement().enum_wrapper(Box::new(StatementAst::LoopControlFlow)),
-            || self.parse_pin_statement().enum_wrapper(Box::new(StatementAst::Pin)),
-            || self.parse_rel_statement().enum_wrapper(Box::new(StatementAst::Rel)),
-            || self.parse_assignment_statement().enum_wrapper(Box::new(StatementAst::Assignment)),
-            || self.parse_expression().enum_wrapper(Box::new(StatementAst::Expression)));
+        let p1 = parse_alternate!(self,
+            Parser::parse_use_statement,
+            Parser::parse_let_statement,
+            Parser::parse_ret_statement,
+            Parser::parse_exit_statement,
+            Parser::parse_skip_statement,
+            Parser::parse_pin_statement,
+            Parser::parse_rel_statement,
+            Parser::parse_assignment_statement,
+            Parser::parse_expression_statement);
         Ok(p1)
     }
 
-    fn parse_global_use_statement(&mut self) -> ParserResult<UseStatementAst> {
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let mut p2 = parse_once!(self, || self.parse_use_statement());
+    fn parse_global_use_statement(&mut self) -> ParserResult<ModuleMemberAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let StatementAst::Use(mut p2) = parse_once!(self, Parser::parse_use_statement) else { return Err(SyntaxError::new(c1, "".to_string())) };
         p2.annotations = p1;
-        Ok(p2)
+        Ok(ModuleMemberAst::UseStatement(p2))
     }
 
-    fn parse_use_statement(&mut self) -> ParserResult<UseStatementAst> {
+    fn parse_use_statement(&mut self) -> ParserResult<StatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Use));
-        let p2 = parse_once!(self, || self.parse_upper_identifier());
-        let p3 = parse_optional!(self, || self.parse_generic_parameters());
-        let p4 = parse_once!(self, || self.parse_token_assign());
-        let p5 = parse_once!(self, || self.parse_type());
-        Ok(UseStatementAst::new(c1, vec![], p1, TypeAst::from(p2), p3, p4, p5))
+        let p1 = parse_once!(self, Parser::parse_keyword_use);
+        let p2 = parse_once!(self, Parser::parse_upper_identifier);
+        let p3 = parse_optional!(self, Parser::parse_generic_parameters);
+        let p4 = parse_once!(self, Parser::parse_token_assign);
+        let p5 = parse_once!(self, Parser::parse_type);
+        Ok(StatementAst::Use(UseStatementAst::new(c1, vec![], p1, TypeAst::from(p2), p3, p4, p5)))
     }
 
-    fn parse_global_constant(&mut self) -> ParserResult<GlobalConstantAst> {
+    fn parse_comp_global_constant(&mut self) -> ParserResult<ModuleMemberAst> {
         let c1 = self.current_pos();
-        let p1 = parse_zero_or_more!(self, || self.parse_annotation(), || self.parse_token_newline());
-        let p2 = parse_once!(self, || self.parse_keyword(Keywords::Cmp));
-        let p3 = parse_once!(self, || self.parse_identifier());
-        let p4 = parse_once!(self, || self.parse_token_primitive(TokenType::TkColon));
-        let p5 = parse_once!(self, || self.parse_type());
-        let p6 = parse_once!(self, || self.parse_token_assign());
-        let p7 = parse_once!(self, || self.parse_global_constant_value());
-        Ok(GlobalConstantAst::new(c1, p1, p2, p3, p4, p5, p6, p7))
+        let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
+        let p2 = parse_once!(self, Parser::parse_keyword_cmp);
+        let p3 = parse_once!(self, Parser::parse_identifier);
+        let p4 = parse_once!(self, Parser::parse_token_colon);
+        let p5 = parse_once!(self, Parser::parse_type);
+        let p6 = parse_once!(self, Parser::parse_token_assign);
+        let p7 = parse_once!(self, Parser::parse_comp_value);
+        Ok(ModuleMemberAst::GlobalConst(GlobalConstantAst::new(c1, p1, p2, p3, p4, p5, p6, p7)))
     }
 
-    fn parse_let_statement(&mut self) -> ParserResult<LetStatementAst> {
-        let p1 = parse_alternate!(
-            self,
-            || self.parse_let_statement_initialized(),
-            || self.parse_let_statement_uninitialized());
-        Ok(p1)
+    fn parse_let_statement(&mut self) -> ParserResult<StatementAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_let_statement_initialized,
+            Parser::parse_let_statement_uninitialized);
+        Ok(StatementAst::Let(p1))
     }
 
     fn parse_let_statement_initialized(&mut self) -> ParserResult<LetStatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Let));
-        let p2 = parse_once!(self, || self.parse_local_variable());
-        let p3 = parse_once!(self, || self.parse_token_assign());
-        let p4 = parse_once!(self, || self.parse_expression());
+        let p1 = parse_once!(self, Parser::parse_keyword_let);
+        let p2 = parse_once!(self, Parser::parse_local_variable);
+        let p3 = parse_once!(self, Parser::parse_token_assign);
+        let p4 = parse_once!(self, Parser::parse_expression);
         Ok(LetStatementAst::new_initialized(c1, p1, p2, p3, p4))
     }
 
     fn parse_let_statement_uninitialized(&mut self) -> ParserResult<LetStatementAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_keyword(Keywords::Let));
-        let p2 = parse_once!(self, || self.parse_local_variable());
-        let p3 = parse_once!(self, || self.parse_token_primitive(TokenType::TkColon));
-        let p4 = parse_once!(self, || self.parse_type());
+        let p1 = parse_once!(self, Parser::parse_keyword_let);
+        let p2 = parse_once!(self, Parser::parse_local_variable);
+        let p3 = parse_once!(self, Parser::parse_token_colon);
+        let p4 = parse_once!(self, Parser::parse_type);
         Ok(LetStatementAst::new_uninitialized(c1, p1, p2, p3, p4))
     }
 
     fn parse_local_variable(&mut self) -> ParserResult<LocalVariableAst> {
-        let p1 = parse_alternate!(
-            self,
-            || LocalVariableAst::DestructureArray(self.parse_local_variable_destructure_array()),
-            || LocalVariableAst::DestructureTuple(self.parse_local_variable_destructure_tuple()),
-            || LocalVariableAst::DestructureObject(self.parse_local_variable_destructure_object()),
-            || LocalVariableAst::SingleIdentifier(self.parse_local_variable_single_identifier()));
+        let p1 = parse_alternate!(self,
+            Parser::parse_local_variable_destructure_array,
+            Parser::parse_local_variable_destructure_tuple,
+            Parser::parse_local_variable_destructure_object,
+            Parser::parse_local_variable_single_identifier);
         Ok(p1)
     }
 
     fn parse_local_variable_destructure_skip_argument(&mut self) -> ParserResult<LocalVariableDestructureSkip1ArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_underscore());
+        let p1 = parse_once!(self, Parser::parse_token_underscore);
         Ok(LocalVariableDestructureSkip1ArgumentAst::new(c1, p1))
     }
 
     fn parse_local_variable_destructure_skip_arguments(&mut self) -> ParserResult<LocalVariableDestructureSkipNArgumentsAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, || self.parse_token_double_dot());
-        let p2 = parse_optional!(self, || self.parse_local_variable_single_identifier());
+        let p1 = parse_once!(self, Parser::parse_token_double_dot);
+        let p2 = parse_optional!(self, Parser::parse_local_variable_single_identifier);
         Ok(LocalVariableDestructureSkipNArgumentsAst::new(c1, p1, p2))
     }
 
     fn parse_local_variable_single_identifier(&mut self) -> ParserResult<LocalVariableSingleIdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = parse_optional!(self, || self.parse_keyword(Keywords::Mut));
-
-
-        let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
-        let p2 = self.parse_identifier().parse_once()?;
-        let p3 = self
-            .parse_local_variable_single_identifier_alias()
-            .parse_optional();
-        return Ok(LocalVariableSingleIdentifierAst::new(c1, p1, p2, p3));
+        let p1 = parse_optional!(self, Parser::parse_keyword_mut);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        let p3 = parse_optional!(self, Parser::parse_local_variable_single_identifier_alias);
+        Ok(LocalVariableSingleIdentifierAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_local_variable_single_identifier_alias(
-        &mut self,
-    ) -> ParserResult<LocalVariableSingleIdentifierAliasAst> {
+    fn parse_local_variable_single_identifier_alias(&mut self) -> ParserResult<LocalVariableSingleIdentifierAliasAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::As).parse_once()?;
-        let p2 = self.parse_identifier().parse_once()?;
-        return Ok(LocalVariableSingleIdentifierAliasAst::new(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_keyword_as);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        Ok(LocalVariableSingleIdentifierAliasAst::new(c1, p1, p2))
     }
 
-    fn parse_local_variable_destructure_array(
-        &mut self,
-    ) -> ParserResult<LocalVariableDestructureArrayAst> {
+    fn parse_local_variable_destructure_array(&mut self) -> ParserResult<LocalVariableDestructureArrayAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_curly_brace().parse_once()?;
-        let p2 = self
-            .parse_local_variable_nested_for_destructure_array()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_curly_brace().parse_once()?;
-        return Ok(LocalVariableDestructureArrayAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_curly_brace);
+        let p2 = parse_one_or_more!(self, Parser::parse_local_variable_nested_for_destructure_array, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_curly_brace);
+        Ok(LocalVariableDestructureArrayAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_local_variable_destructure_tuple(
-        &mut self,
-    ) -> ParserResult<LocalVariableDestructureTupleAst> {
+    fn parse_local_variable_destructure_tuple(&mut self) -> ParserResult<LocalVariableDestructureTupleAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self
-            .parse_local_variable_nested_for_destructure_tuple()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LocalVariableDestructureTupleAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_one_or_more!(self, Parser::parse_local_variable_nested_for_destructure_tuple, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LocalVariableDestructureTupleAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_local_variable_destructure_object(
-        &mut self,
-    ) -> ParserResult<LocalVariableDestructureObjectAst> {
+    fn parse_local_variable_destructure_object(&mut self) -> ParserResult<LocalVariableDestructureObjectAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_type_single().parse_once()?;
-        let p2 = self.parse_token_left_parenthesis().parse_once()?;
-        let p3 = self
-            .parse_local_variable_nested_for_destructure_object()
-            .parse_zero_or_more(Box::new(self.parse_token_comma()));
-        let p4 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LocalVariableDestructureObjectAst::new(c1, p1, p2, p3, p4));
+        let p1 = parse_once!(self, Parser::parse_type_single);
+        let p2 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p3 = parse_zero_or_more!(self, Parser::parse_local_variable_nested_for_destructure_object, Parser::parse_token_comma);
+        let p4 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LocalVariableDestructureObjectAst::new(c1, p1, p2, p3, p4))
     }
 
-    fn parse_local_variable_attribute_binding(
-        &mut self,
-    ) -> ParserResult<LocalVariableAttributeBindingAst> {
+    fn parse_local_variable_attribute_binding(&mut self) -> ParserResult<LocalVariableAttributeBindingAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_identifier().parse_once()?;
-        let p2 = self.parse_token_assign().parse_once()?;
-        let p3 = self
-            .parse_local_variable_nested_for_attribute_binding()
-            .parse_once()?;
-        return Ok(LocalVariableAttributeBindingAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_local_variable_nested_for_attribute_binding);
+        Ok(LocalVariableAttributeBindingAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_local_variable_nested_for_destructure_array(
-        &mut self,
-    ) -> ParserResult<LocalVariableNestedForDestructureArrayAst> {
-        let p1 = self
-            .parse_local_variable_destructure_array()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_local_variable_destructure_tuple()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_local_variable_destructure_object()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::DestructureObject,
-            ));
-        let p4 = self
-            .parse_local_variable_single_identifier()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::SingleIdentifier,
-            ));
-        let p5 = self
-            .parse_local_variable_destructure_skip_arguments()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::SkipNArgs,
-            ));
-        let p6 = self
-            .parse_local_variable_destructure_skip_argument()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureArrayAst::Skip1Args,
-            ));
-        let p7 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
-        return Ok(p7);
+    fn parse_local_variable_nested_for_destructure_array(&mut self) -> ParserResult<LocalVariableNestedForDestructureArrayAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_local_variable_destructure_array,
+            Parser::parse_local_variable_destructure_tuple,
+            Parser::parse_local_variable_destructure_object,
+            Parser::parse_local_variable_single_identifier,
+            Parser::parse_local_variable_destructure_skip_arguments,
+            Parser::parse_local_variable_destructure_skip_argument);
+        Ok(p1)
     }
 
-    fn parse_local_variable_nested_for_destructure_tuple(
-        &mut self,
-    ) -> ParserResult<LocalVariableNestedForDestructureTupleAst> {
-        let p1 = self
-            .parse_local_variable_destructure_array()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_local_variable_destructure_tuple()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_local_variable_destructure_object()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::DestructureObject,
-            ));
-        let p4 = self
-            .parse_local_variable_single_identifier()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::SingleIdentifier,
-            ));
-        let p5 = self
-            .parse_local_variable_destructure_skip_arguments()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::SkipNArgs,
-            ));
-        let p6 = self
-            .parse_local_variable_destructure_skip_argument()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureTupleAst::Skip1Args,
-            ));
-        let p7 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
-        return Ok(p7);
+    fn parse_local_variable_nested_for_destructure_tuple(&mut self) -> ParserResult<LocalVariableNestedForDestructureTupleAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_local_variable_destructure_array,
+            Parser::parse_local_variable_destructure_tuple,
+            Parser::parse_local_variable_destructure_object,
+            Parser::parse_local_variable_single_identifier,
+            Parser::parse_local_variable_destructure_skip_arguments,
+            Parser::parse_local_variable_destructure_skip_argument);
+        Ok(p1)
     }
 
-    fn parse_local_variable_nested_for_destructure_object(
-        &mut self,
-    ) -> ParserResult<LocalVariableNestedForDestructureObjectAst> {
-        let p1 = self
-            .parse_local_variable_attribute_binding()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureObjectAst::AttrBind,
-            ));
-        let p2 = self
-            .parse_local_variable_single_identifier()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureObjectAst::SingleIdentifier,
-            ));
-        let p3 = self
-            .parse_local_variable_destructure_skip_arguments()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForDestructureObjectAst::SkipNArgs,
-            ));
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+    fn parse_local_variable_nested_for_destructure_object(&mut self) -> ParserResult<LocalVariableNestedForDestructureObjectAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_local_variable_attribute_binding,
+            Parser::parse_local_variable_single_identifier,
+            Parser::parse_local_variable_destructure_skip_arguments);
+        Ok(p1)
     }
 
-    fn parse_local_variable_nested_for_attribute_binding(
-        &mut self,
-    ) -> ParserResult<LocalVariableNestedForAttributeBindingAst> {
-        let p1 = self
-            .parse_local_variable_destructure_array()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForAttributeBindingAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_local_variable_destructure_tuple()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForAttributeBindingAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_local_variable_destructure_object()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForAttributeBindingAst::DestructureObject,
-            ));
-        let p4 = self
-            .parse_local_variable_single_identifier()
-            .enum_wrapper(Box::new(
-                LocalVariableNestedForAttributeBindingAst::SingleIdentifier,
-            ));
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+    fn parse_local_variable_nested_for_attribute_binding(&mut self) -> ParserResult<LocalVariableNestedForAttributeBindingAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_local_variable_destructure_array,
+            Parser::parse_local_variable_destructure_tuple,
+            Parser::parse_local_variable_destructure_object,
+            Parser::parse_local_variable_single_identifier);
+        Ok(p1)
     }
 
-    fn parse_assignment_statement(&mut self) -> ParserResult<AssignmentStatementAst> {
+    fn parse_assignment_statement(&mut self) -> ParserResult<StatementAst> {
         let c1 = self.current_pos();
-        let p1 = self
-            .parse_expression()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p2 = self.parse_token_assign().parse_once()?;
-        let p3 = self
-            .parse_expression()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        return Ok(AssignmentStatementAst::new(c1, p1, p2, p3));
+        let p1 = parse_one_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_one_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        Ok(StatementAst::Assignment(AssignmentStatementAst::new(c1, p1, p2, p3)))
     }
 
     fn parse_case_expression_branch_simple(&mut self) -> ParserResult<CaseExpressionBranchAst> {
-        let p1 = self.parse_pattern_statement_flavour_else_case();
-        let p2 = self.parse_pattern_statement_flavour_else();
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(p3);
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_statement_flavour_else_case,
+            Parser::parse_pattern_statement_flavour_else);
+        Ok(p1)
     }
 
     fn parse_case_expression_branch(&mut self) -> ParserResult<CaseExpressionBranchAst> {
-        let p1 = self.parse_pattern_statement_flavour_destructuring();
-        let p2 = self.parse_pattern_statement_flavour_non_destructuring();
-        let p3 = self.parse_pattern_statement_flavour_else_case();
-        let p4 = self.parse_pattern_statement_flavour_else();
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_statement_flavour_destructuring,
+            Parser::parse_pattern_statement_flavour_non_destructuring,
+            Parser::parse_pattern_statement_flavour_else_case,
+            Parser::parse_pattern_statement_flavour_else);
+        Ok(p1)
     }
 
-    fn parse_pattern_statement_flavour_destructuring(
-        &mut self,
-    ) -> ParserResult<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_destructuring(&mut self) -> ParserResult<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::Is).parse_once()?;
-        let p2 = self
-            .parse_pattern_group_destructure()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_pattern_guard().parse_optional();
-        let p4 = self.parse_inner_scope().parse_once()?;
-        return Ok(CaseExpressionBranchAst::new(c1, Some(p1), p2, p3, p4));
+        let p1 = parse_once!(self, Parser::parse_keyword_is);
+        let p2 = parse_one_or_more!(self, Parser::parse_pattern_group_destructure, Parser::parse_token_comma);
+        let p3 = parse_optional!(self, Parser::parse_pattern_guard);
+        let p4 = parse_once!(self, Parser::parse_inner_scope);
+        Ok(CaseExpressionBranchAst::new(c1, Some(p1), p2, p3, p4))
     }
 
-    fn parse_pattern_statement_flavour_non_destructuring(
-        &mut self,
-    ) -> ParserResult<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_non_destructuring(&mut self) -> ParserResult<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_boolean_comparison_op().parse_once()?;
-        let p2 = self
-            .parse_pattern_variant_expression()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_inner_scope().parse_once()?;
-        return Ok(CaseExpressionBranchAst::new(c1, Some(p1), p2, None, p3));
+        let p1 = parse_once!(self, Parser::parse_boolean_comparison_op);
+        let p2 = parse_one_or_more!(self, Parser::parse_pattern_variant_expression, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_inner_scope);
+        Ok(CaseExpressionBranchAst::new(c1, Some(p1), p2, None, p3))
     }
 
-    fn parse_pattern_statement_flavour_else_case(
-        &mut self,
-    ) -> ParserResult<CaseExpressionBranchAst> {
+    fn parse_pattern_statement_flavour_else_case(&mut self) -> ParserResult<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_pattern_variant_else_case().parse_once()?;
-        return Ok(CaseExpressionBranchAst::new_from_else_to_else_case(c1, p1));
+        let p1 = parse_once!(self, Parser::parse_pattern_variant_else_case);
+        Ok(CaseExpressionBranchAst::new_from_else_to_else_case(c1, p1))
     }
 
     fn parse_pattern_statement_flavour_else(&mut self) -> ParserResult<CaseExpressionBranchAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_pattern_variant_else().parse_once()?;
-        let p2 = self.parse_inner_scope().parse_once()?;
-        return Ok(CaseExpressionBranchAst::new(c1, None, vec![p1], None, p2));
+        let p1 = parse_once!(self, Parser::parse_pattern_variant_else);
+        let p2 = parse_once!(self, Parser::parse_inner_scope);
+        Ok(CaseExpressionBranchAst::new(c1, None, vec![p1], None, p2))
     }
 
     fn parse_pattern_group_destructure(&mut self) -> ParserResult<PatternVariantAst> {
-        let p1 = self
-            .parse_pattern_variant_destructure_array()
-            .enum_wrapper(Box::new(PatternVariantAst::DestructureArray));
-        let p2 = self
-            .parse_pattern_variant_destructure_tuple()
-            .enum_wrapper(Box::new(PatternVariantAst::DestructureTuple));
-        let p3 = self
-            .parse_pattern_variant_destructure_object()
-            .enum_wrapper(Box::new(PatternVariantAst::DestructureObject));
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_variant_destructure_array,
+            Parser::parse_pattern_variant_destructure_tuple,
+            Parser::parse_pattern_variant_destructure_object);
+        Ok(p1)
     }
 
-    fn parse_pattern_variant_skip_argument(
-        &mut self,
-    ) -> ParserResult<PatternVariantDestructureSkip1ArgumentAst> {
+    fn parse_pattern_variant_skip_argument(&mut self) -> ParserResult<PatternVariantDestructureSkip1ArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_underscore().parse_once()?;
-        return Ok(PatternVariantDestructureSkip1ArgumentAst::new(c1, p1));
+        let p1 = parse_once!(self, Parser::parse_token_underscore);
+        Ok(PatternVariantDestructureSkip1ArgumentAst::new(c1, p1))
     }
 
-    fn parse_pattern_variant_skip_arguments(
-        &mut self,
-    ) -> ParserResult<PatternVariantDestructureSkipNArgumentsAst> {
+    fn parse_pattern_variant_skip_arguments(&mut self) -> ParserResult<PatternVariantDestructureSkipNArgumentsAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_double_dot().parse_once()?;
-        let p2 = self
-            .parse_pattern_variant_single_identifier()
-            .parse_optional();
-        return Ok(PatternVariantDestructureSkipNArgumentsAst::new(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_token_double_dot);
+        let p2 = parse_optional!(self, Parser::parse_pattern_variant_single_identifier);
+        Ok(PatternVariantDestructureSkipNArgumentsAst::new(c1, p1, p2))
     }
 
-    fn parse_pattern_variant_single_identifier(
-        &mut self,
-    ) -> ParserResult<PatternVariantSingleIdentifierAst> {
+    fn parse_pattern_variant_single_identifier(&mut self) -> ParserResult<PatternVariantSingleIdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::Mut).parse_optional();
-        let p2 = self.parse_identifier().parse_once()?;
-        let p3 = self
-            .parse_local_variable_single_identifier_alias()
-            .parse_optional();
-        return Ok(PatternVariantSingleIdentifierAst::new(c1, p1, p2, p3));
+        let p1 = parse_optional!(self, Parser::parse_keyword_mut);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        let p3 = parse_optional!(self, Parser::parse_local_variable_single_identifier_alias);
+        Ok(PatternVariantSingleIdentifierAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_pattern_variant_destructure_tuple(
-        &mut self,
-    ) -> ParserResult<PatternVariantDestructureTupleAst> {
+    fn parse_pattern_variant_destructure_tuple(&mut self) -> ParserResult<PatternVariantDestructureTupleAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self
-            .parse_pattern_variant_nested_for_destructure_tuple()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(PatternVariantDestructureTupleAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_one_or_more!(self, Parser::parse_pattern_variant_nested_for_destructure_tuple, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(PatternVariantDestructureTupleAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_pattern_variant_destructure_array(
-        &mut self,
-    ) -> ParserResult<PatternVariantDestructureArrayAst> {
+    fn parse_pattern_variant_destructure_array(&mut self) -> ParserResult<PatternVariantDestructureArrayAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_square_bracket().parse_once()?;
-        let p2 = self
-            .parse_pattern_variant_nested_for_destructure_array()
-            .parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_square_bracket().parse_once()?;
-        return Ok(PatternVariantDestructureArrayAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_one_or_more!(self, Parser::parse_pattern_variant_nested_for_destructure_array, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
+        Ok(PatternVariantDestructureArrayAst::new(c1, p1, p2, p3))
     }
 
-    fn parse_pattern_variant_destructure_object(
-        &mut self,
-    ) -> ParserResult<PatternVariantDestructureObjectAst> {
+    fn parse_pattern_variant_destructure_object(&mut self) -> ParserResult<PatternVariantDestructureObjectAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_type_single().parse_once()?;
-        let p2 = self.parse_token_left_parenthesis().parse_once()?;
-        let p3 = self
-            .parse_pattern_variant_nested_for_destructure_object()
-            .parse_zero_or_more(Box::new(self.parse_token_comma()));
-        let p4 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(PatternVariantDestructureObjectAst::new(c1, p1, p2, p3, p4));
+        let p1 = parse_once!(self, Parser::parse_type_single);
+        let p2 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p3 = parse_zero_or_more!(self, Parser::parse_pattern_variant_nested_for_destructure_object, Parser::parse_token_comma);
+        let p4 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(PatternVariantDestructureObjectAst::new(c1, p1, p2, p3, p4))
     }
 
-    fn parse_pattern_variant_attribute_binding(
-        &mut self,
-    ) -> ParserResult<PatternVariantAttributeBindingAst> {
+    fn parse_pattern_variant_attribute_binding(&mut self) -> ParserResult<PatternVariantAttributeBindingAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_identifier().parse_once()?;
-        let p2 = self.parse_token_assign().parse_once()?;
-        let p3 = self
-            .parse_pattern_variant_nested_for_attribute_binding()
-            .parse_once()?;
-        return Ok(PatternVariantAttributeBindingAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_pattern_variant_nested_for_attribute_binding);
+        Ok(PatternVariantAttributeBindingAst::new(c1, p1, p2, p3))
     }
 
     fn parse_pattern_variant_literal(&mut self) -> ParserResult<PatternVariantLiteralAst> {
-        let p1 = self
-            .parse_literal_float()
-            .enum_wrapper(Box::new(PatternVariantLiteralAst::Float));
-        let p2 = self
-            .parse_literal_integer()
-            .enum_wrapper(Box::new(PatternVariantLiteralAst::Integer));
-        let p3 = self
-            .parse_literal_string()
-            .enum_wrapper(Box::new(PatternVariantLiteralAst::String));
-        let p4 = self
-            .parse_literal_boolean()
-            .enum_wrapper(Box::new(PatternVariantLiteralAst::Boolean));
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_float,
+            Parser::parse_literal_integer,
+            Parser::parse_literal_string,
+            Parser::parse_literal_boolean);
+        Ok(p1)
     }
 
     fn parse_pattern_variant_expression(&mut self) -> ParserResult<PatternVariantAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_expression().parse_once()?;
-        return Ok(PatternVariantAst::Expression(
-            PatternVariantExpressionAst::new(c1, p1),
-        ));
+        let p1 = parse_once!(self, Parser::parse_expression);
+        Ok(PatternVariantAst::Expression(PatternVariantExpressionAst::new(c1, p1)))
     }
 
     fn parse_pattern_variant_else(&mut self) -> ParserResult<PatternVariantAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::Else).parse_once()?;
-        return Ok(PatternVariantAst::Else(PatternVariantElseAst::new(c1, p1)));
+        let p1 = parse_once!(self, Parser::parse_keyword_else);
+        Ok(PatternVariantAst::Else(PatternVariantElseAst::new(c1, p1)))
     }
 
     fn parse_pattern_variant_else_case(&mut self) -> ParserResult<PatternVariantAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::Else).parse_once()?;
-        let p2 = self.parse_case_expression().parse_once()?;
-        return Ok(PatternVariantAst::ElseCase(PatternVariantElseCaseAst::new(
-            c1, p1, p2,
-        )));
+        let p1 = parse_once!(self, Parser::parse_keyword_else);
+        let ExpressionAst::Primary(PrimaryExpressionAst::Case(p2)) = parse_once!(self, Parser::parse_case_expression) else { return Err(SyntaxError::new(c1, "".to_string())) };
+        return Ok(PatternVariantAst::ElseCase(PatternVariantElseCaseAst::new(c1, p1, p2)));
     }
 
-    fn parse_pattern_variant_nested_for_destructure_array(
-        &mut self,
-    ) -> ParserResult<PatternVariantNestedForDestructureArrayAst> {
-        let p1 = self
-            .parse_pattern_variant_destructure_array()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_pattern_variant_destructure_tuple()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_pattern_variant_destructure_object()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::DestructureObject,
-            ));
-        let p4 = self
-            .parse_pattern_variant_single_identifier()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::SingleIdentifier,
-            ));
-        let p5 = self.parse_pattern_variant_literal().enum_wrapper(Box::new(
-            PatternVariantNestedForDestructureArrayAst::Literal,
-        ));
-        let p6 = self
-            .parse_pattern_variant_skip_arguments()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::SkipNArgs,
-            ));
-        let p7 = self
-            .parse_pattern_variant_skip_argument()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureArrayAst::Skip1Args,
-            ));
-        let p8 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).or(p7).parse_once()?;
-        return Ok(p8);
+    fn parse_pattern_variant_nested_for_destructure_array(&mut self) -> ParserResult<PatternVariantNestedForDestructureArrayAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_variant_nested_for_destructure_array,
+            Parser::parse_pattern_variant_nested_for_destructure_tuple,
+            Parser::parse_pattern_variant_nested_for_destructure_object,
+            Parser::parse_pattern_variant_single_identifier,
+            Parser::parse_pattern_variant_literal,
+            Parser::parse_pattern_variant_skip_arguments,
+            Parser::parse_pattern_variant_skip_argument);
+        Ok(p1)
     }
 
-    fn parse_pattern_variant_nested_for_destructure_tuple(
-        &mut self,
-    ) -> ParserResult<PatternVariantNestedForDestructureTupleAst> {
-        let p1 = self
-            .parse_pattern_variant_destructure_array()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_pattern_variant_destructure_tuple()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_pattern_variant_destructure_object()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::DestructureObject,
-            ));
-        let p4 = self
-            .parse_pattern_variant_single_identifier()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::SingleIdentifier,
-            ));
-        let p5 = self.parse_pattern_variant_literal().enum_wrapper(Box::new(
-            PatternVariantNestedForDestructureTupleAst::Literal,
-        ));
-        let p6 = self
-            .parse_pattern_variant_skip_arguments()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::SkipNArgs,
-            ));
-        let p7 = self
-            .parse_pattern_variant_skip_argument()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureTupleAst::Skip1Args,
-            ));
-        let p8 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).or(p7).parse_once()?;
-        return Ok(p8);
+    fn parse_pattern_variant_nested_for_destructure_tuple(&mut self) -> ParserResult<PatternVariantNestedForDestructureTupleAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_variant_destructure_array,
+            Parser::parse_pattern_variant_destructure_tuple,
+            Parser::parse_pattern_variant_destructure_object,
+            Parser::parse_pattern_variant_single_identifier,
+            Parser::parse_pattern_variant_literal,
+            Parser::parse_pattern_variant_skip_arguments,
+            Parser::parse_pattern_variant_skip_argument);
+        Ok(p1)
     }
 
-    fn parse_pattern_variant_nested_for_destructure_object(
-        &mut self,
-    ) -> ParserResult<PatternVariantNestedForDestructureObjectAst> {
-        let p1 = self
-            .parse_pattern_variant_attribute_binding()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureObjectAst::AttrBind,
-            ));
-        let p2 = self
-            .parse_pattern_variant_single_identifier()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureObjectAst::SingleIdentifier,
-            ));
-        let p3 = self
-            .parse_pattern_variant_skip_arguments()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForDestructureObjectAst::SkipNArgs,
-            ));
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+    fn parse_pattern_variant_nested_for_destructure_object(&mut self) -> ParserResult<PatternVariantNestedForDestructureObjectAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_variant_attribute_binding,
+            Parser::parse_pattern_variant_single_identifier,
+            Parser::parse_pattern_variant_skip_arguments);
+        Ok(p1)
     }
 
-    fn parse_pattern_variant_nested_for_attribute_binding(
-        &mut self,
-    ) -> ParserResult<PatternVariantNestedForAttributeBindingAst> {
-        let p1 = self
-            .parse_pattern_variant_destructure_array()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForAttributeBindingAst::DestructureArray,
-            ));
-        let p2 = self
-            .parse_pattern_variant_destructure_tuple()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForAttributeBindingAst::DestructureTuple,
-            ));
-        let p3 = self
-            .parse_pattern_variant_destructure_object()
-            .enum_wrapper(Box::new(
-                PatternVariantNestedForAttributeBindingAst::DestructureObject,
-            ));
-        let p4 = self.parse_pattern_variant_literal().enum_wrapper(Box::new(
-            PatternVariantNestedForAttributeBindingAst::Literal,
-        ));
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+    fn parse_pattern_variant_nested_for_attribute_binding(&mut self) -> ParserResult<PatternVariantNestedForAttributeBindingAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_pattern_variant_destructure_array,
+            Parser::parse_pattern_variant_destructure_tuple,
+            Parser::parse_pattern_variant_destructure_object,
+            Parser::parse_pattern_variant_literal);
+        Ok(p1)
     }
 
     fn parse_pattern_guard(&mut self) -> ParserResult<PatternGuardAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::And).parse_once()?;
-        let p2 = self.parse_expression().parse_once()?;
-        return Ok(PatternGuardAst::new(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_keyword_and);
+        let p2 = parse_once!(self, Parser::parse_expression);
+        Ok(PatternGuardAst::new(c1, p1, p2))
     }
 
     fn parse_binary_op_precedence_level_1(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_keyword(Keywords::Or).parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, Parser::parse_keyword_or);
+        Ok(p1)
     }
 
     fn parse_binary_op_precedence_level_2(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_keyword(Keywords::And).parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, Parser::parse_keyword_and);
+        Ok(p1)
     }
 
     fn parse_binary_op_precedence_level_3(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_keyword(Keywords::Is).parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, Parser::parse_keyword_is);
+        Ok(p1)
     }
 
     fn parse_binary_op_precedence_level_4(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_eq();
-        let p2 = self.parse_token_ne();
-        let p3 = self.parse_token_le();
-        let p4 = self.parse_token_ge();
-        let p5 = self.parse_token_lt();
-        let p6 = self.parse_token_gt();
-        let p7 = self.parse_token_ss();
-        let p8 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).or(p7).parse_once()?;
-        return Ok(p8);
+        let p1 = parse_alternate!(self,
+            Parser::parse_token_eq,
+            Parser::parse_token_ne,
+            Parser::parse_token_le,
+            Parser::parse_token_ge,
+            Parser::parse_token_lt,
+            Parser::parse_token_gt,
+            Parser::parse_token_ss);
+        Ok(p1)
     }
 
     fn parse_binary_op_precedence_level_5(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_add_assign();
-        let p2 = self.parse_token_sub_assign();
-        let p3 = self.parse_token_add();
-        let p4 = self.parse_token_sub();
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+        let p1 = parse_alternate!(self,
+            Parser::parse_token_add_assign,
+            Parser::parse_token_sub_assign,
+            Parser::parse_token_add,
+            Parser::parse_token_sub);
+        Ok(p1)
     }
 
     fn parse_binary_op_precedence_level_6(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_mul_assign();
-        let p2 = self.parse_token_div_assign();
-        let p3 = self.parse_token_rem_assign();
-        let p4 = self.parse_token_mod_assign();
-        let p5 = self.parse_token_exp_assign();
-        let p6 = self.parse_token_mul();
-        let p7 = self.parse_token_div();
-        let p8 = self.parse_token_rem();
-        let p9 = self.parse_token_mod();
-        let p10 = self.parse_token_exp();
-        let p11 = p1
-            .or(p2)
-            .or(p3)
-            .or(p4)
-            .or(p5)
-            .or(p6)
-            .or(p7)
-            .or(p8)
-            .or(p9)
-            .or(p10)
-            .parse_once()?;
-        return Ok(p11);
+        let p1 = parse_alternate!(self,
+            Parser::parse_token_mul_assign,
+            Parser::parse_token_div_assign,
+            Parser::parse_token_rem_assign,
+            Parser::parse_token_mod_assign,
+            Parser::parse_token_exp_assign,
+            Parser::parse_token_mul,
+            Parser::parse_token_div,
+            Parser::parse_token_rem,
+            Parser::parse_token_mod,
+            Parser::parse_token_exp);
+        Ok(p1)
     }
 
     fn parse_boolean_comparison_op(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_eq();
-        let p2 = self.parse_token_ne();
-        let p3 = self.parse_token_le();
-        let p4 = self.parse_token_ge();
-        let p5 = self.parse_token_lt();
-        let p6 = self.parse_token_gt();
-        let p8 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
-        return Ok(p8);
+        let p1 = parse_alternate!(self,
+            Parser::parse_token_eq,
+            Parser::parse_token_ne,
+            Parser::parse_token_le,
+            Parser::parse_token_ge,
+            Parser::parse_token_lt,
+            Parser::parse_token_gt);
+        Ok(p1)
     }
 
     fn parse_unary_op(&mut self) -> ParserResult<UnaryExpressionOperatorAst> {
-        let p1 = self.parse_unary_op_async_call().parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, Parser::parse_unary_op_async_call);
+        Ok(p1)
     }
 
     fn parse_unary_op_async_call(&mut self) -> ParserResult<UnaryExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::Async).parse_once()?;
-        return Ok(UnaryExpressionOperatorAst::Async(
-            UnaryExpressionOperatorAsyncAst::new(c1, p1),
-        ));
+        let p1 = parse_once!(self, Parser::parse_keyword_async);
+        Ok(UnaryExpressionOperatorAst::Async(UnaryExpressionOperatorAsyncAst::new(c1, p1)))
     }
 
     fn parse_postfix_op(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
-        let p1 = self.parse_postfix_op_function_call();
-        let p2 = self.parse_postfix_op_member_access();
-        let p3 = self.parse_postfix_op_early_return();
-        let p4 = self.parse_postfix_op_not_keyword();
-        let p5 = self.parse_postfix_op_step_keyword();
-        let p6 = p1.or(p2).or(p3).or(p4).or(p5).parse_once()?;
-        return Ok(p6);
+        let p1 = parse_alternate!(self,
+            Parser::parse_postfix_op_function_call,
+            Parser::parse_postfix_op_member_access,
+            Parser::parse_postfix_op_early_return,
+            Parser::parse_postfix_op_not_keyword,
+            Parser::parse_postfix_op_step_keyword);
+        Ok(p1)
     }
 
     fn parse_postfix_op_function_call(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_generic_arguments().parse_optional();
-        let p2 = self.parse_function_call_arguments().parse_once()?;
-        let p3 = self.parse_token_double_dot().parse_optional();
-        return Ok(PostfixExpressionOperatorAst::FunctionCall(
-            PostfixExpressionOperatorFunctionCallAst::new(c1, p1, p2, p3),
-        ));
+        let p1 = parse_optional!(self, Parser::parse_generic_arguments);
+        let p2 = parse_once!(self, Parser::parse_function_call_arguments);
+        let p3 = parse_optional!(self, Parser::parse_token_double_dot);
+        Ok(PostfixExpressionOperatorAst::FunctionCall(PostfixExpressionOperatorFunctionCallAst::new(c1, p1, p2, p3)))
     }
 
     fn parse_postfix_op_member_access(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
-        let p1 = self.parse_postfix_op_member_access_runtime();
-        let p2 = self.parse_postfix_op_member_access_static();
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(p3);
+        let p1 = parse_alternate!(self,
+            Parser::parse_postfix_op_member_access_runtime,
+            Parser::parse_postfix_op_member_access_static);
+        Ok(p1)
     }
 
-    fn parse_postfix_op_member_access_runtime(
-        &mut self,
-    ) -> ParserResult<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_member_access_runtime(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_dot().parse_once()?;
-        let p2 = self.parse_identifier();
-        let p3 = self.parse_numeric_identifier();
-        let p4 = p2.or(p3).parse_once()?;
-        return Ok(PostfixExpressionOperatorAst::MemberAccess(
-            PostfixExpressionOperatorMemberAccessAst::new(c1, p1, p4),
-        ));
+        let p1 = parse_once!(self, Parser::parse_token_dot);
+        let p2 = parse_alternate!(self,
+            Parser::parse_identifier,
+            Parser::parse_numeric_identifier);
+        Ok(PostfixExpressionOperatorAst::MemberAccess(PostfixExpressionOperatorMemberAccessAst::new(c1, p1, p2)))
     }
 
-    fn parse_postfix_op_member_access_static(
-        &mut self,
-    ) -> ParserResult<PostfixExpressionOperatorAst> {
+    fn parse_postfix_op_member_access_static(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_double_colon().parse_once()?;
-        let p2 = self.parse_identifier().parse_once()?;
-        return Ok(PostfixExpressionOperatorAst::MemberAccess(
-            PostfixExpressionOperatorMemberAccessAst::new(c1, p1, p2),
-        ));
+        let p1 = parse_once!(self, Parser::parse_token_double_colon);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        Ok(PostfixExpressionOperatorAst::MemberAccess(PostfixExpressionOperatorMemberAccessAst::new(c1, p1, p2)))
     }
 
     fn parse_postfix_op_early_return(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_question_mark().parse_once()?;
-        return Ok(PostfixExpressionOperatorAst::EarlyReturn(
-            PostfixExpressionOperatorEarlyReturnAst::new(c1, p1),
-        ));
+        let p1 = parse_once!(self, Parser::parse_token_question_mark);
+        Ok(PostfixExpressionOperatorAst::EarlyReturn(PostfixExpressionOperatorEarlyReturnAst::new(c1, p1)))
     }
 
     fn parse_postfix_op_not_keyword(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_dot().parse_once()?;
-        let p2 = self.parse_keyword(Keywords::Not).parse_once()?;
-        return Ok(PostfixExpressionOperatorAst::NotKeyword(
-            PostfixExpressionOperatorNotKeywordAst::new(c1, p1, p2),
-        ));
+        let p1 = parse_once!(self, Parser::parse_token_dot);
+        let p2 = parse_once!(self, Parser::parse_keyword_not);
+        Ok(PostfixExpressionOperatorAst::NotKeyword(PostfixExpressionOperatorNotKeywordAst::new(c1, p1, p2)))
     }
 
     fn parse_postfix_op_step_keyword(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
-        let p2 = self.parse_keyword(Keywords::Step).parse_once()?;
-        return Ok(PostfixExpressionOperatorAst::StepKeyword(
-            PostfixExpressionOperatorStepKeywordAst::new(c1, p1, p2),
-        ));
+        let p1 = parse_once!(self, Parser::parse_token_dot);
+        let p2 = parse_once!(self, Parser::parse_keyword_step);
+        Ok(PostfixExpressionOperatorAst::StepKeyword(PostfixExpressionOperatorStepKeywordAst::new(c1, p1, p2)))
     }
 
     fn parse_convention(&mut self) -> ParserResult<ConventionAst> {
-        let p1 = self.parse_convention_mut();
-        let p2 = self.parse_convention_ref();
-        let p3 = self.parse_convention_mov();
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+        let p1 = parse_alternate!(self,
+            Parser::parse_convention_mut,
+            Parser::parse_convention_ref,
+            Parser::parse_convention_mov);
+        Ok(p1)
     }
 
     fn parse_convention_mov(&mut self) -> ParserResult<ConventionAst> {
         let c1 = self.current_pos();
-        return Ok(ConventionAst::new_mov(c1));
+        Ok(ConventionAst::new_mov(c1))
     }
 
     fn parse_convention_mut(&mut self) -> ParserResult<ConventionAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_borrow().parse_once()?;
-        let p2 = self.parse_keyword(Keywords::Mut).parse_once()?;
-        return Ok(ConventionAst::new_mut(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_token_borrow);
+        let p2 = parse_once!(self, Parser::parse_keyword_mut);
+        Ok(ConventionAst::new_mut(c1, p1, p2))
     }
 
     fn parse_convention_ref(&mut self) -> ParserResult<ConventionAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_borrow().parse_once()?;
-        return Ok(ConventionAst::new_ref(c1, p1));
+        let p1 = parse_once!(self, Parser::parse_token_borrow);
+        Ok(ConventionAst::new_ref(c1, p1))
     }
 
     fn parse_object_initializer(&mut self) -> ParserResult<ObjectInitializerAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_type_single().parse_once()?;
-        let p2 = self.parse_object_initializer_arguments().parse_once()?;
-        return Ok(ObjectInitializerAst::new(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_type_single);
+        let p2 = parse_once!(self, Parser::parse_object_initializer_arguments);
+        Ok(ObjectInitializerAst::new(c1, p1, p2))
     }
 
-    fn parse_object_initializer_arguments(
-        &mut self,
-    ) -> ParserResult<ObjectInitializerArgumentGroupAst> {
+    fn parse_object_initializer_arguments(&mut self) -> ParserResult<ObjectInitializerArgumentGroupAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self
-            .parse_object_initializer_argument()
-            .parse_zero_or_more(Box::new(self.parse_token_comma()));
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(ObjectInitializerArgumentGroupAst::new(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_zero_or_more!(self, Parser::parse_object_initializer_argument, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(ObjectInitializerArgumentGroupAst::new(c1, p1, p2, p3))
     }
 
     fn parse_object_initializer_argument(&mut self) -> ParserResult<ObjectInitializerArgumentAst> {
-        let p1 = self.parse_object_initializer_argument_named();
-        let p2 = self.parse_object_initializer_argument_unnamed();
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(p3);
+        let p1 = parse_alternate!(self,
+            Parser::parse_object_initializer_argument_named,
+            Parser::parse_object_initializer_argument_unnamed);
+        Ok(p1)
     }
 
-    fn parse_object_initializer_argument_unnamed(
-        &mut self,
-    ) -> ParserResult<ObjectInitializerArgumentAst> {
+    fn parse_object_initializer_argument_unnamed(&mut self) -> ParserResult<ObjectInitializerArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_double_dot().parse_optional();
-        let p2 = self.parse_identifier().parse_once()?;
-        return Ok(ObjectInitializerArgumentAst::new_unnamed(c1, p1, p2));
+        let p1 = parse_optional!(self, Parser::parse_token_double_dot);
+        let p2 = parse_once!(self, Parser::parse_identifier);
+        Ok(ObjectInitializerArgumentAst::new_unnamed(c1, p1, p2))
     }
 
-    fn parse_object_initializer_argument_named(
-        &mut self,
-    ) -> ParserResult<ObjectInitializerArgumentAst> {
+    fn parse_object_initializer_argument_named(&mut self) -> ParserResult<ObjectInitializerArgumentAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_identifier().parse_once()?;
-        let p2 = self.parse_token_assign().parse_once()?;
-        let p3 = self.parse_expression().parse_once()?;
-        return Ok(ObjectInitializerArgumentAst::new_named(
-            c1,
-            p1,
-            p2,
-            Box::new(p3),
-        ));
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_expression);
+        Ok(ObjectInitializerArgumentAst::new_named(c1, p1, p2, Box::new(p3)))
     }
 
     fn parse_type(&mut self) -> ParserResult<TypeAst> {
-        let p1 = self.parse_type_optional();
-        let p2 = self.parse_type_variant();
-        let p3 = self.parse_type_tuple();
-        let p4 = self.parse_type_single();
-        let p5 = p1.or(p2).or(p3).or(p4).parse_once()?;
-        return Ok(p5);
+        let p1 = parse_alternate!(self,
+            Parser::parse_type_optional,
+            Parser::parse_type_variant,
+            Parser::parse_type_tuple,
+            Parser::parse_type_single);
+        Ok(p1)
     }
 
     fn parse_type_optional(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_question_mark().parse_once()?;
-        let p2 = self.parse_type().parse_once()?;
-        return Ok(TypeOptionalAst::new(c1, p1, p2).to_type());
+        let p1 = parse_once!(self, Parser::parse_token_question_mark);
+        let p2 = parse_once!(self, Parser::parse_type);
+        Ok(TypeOptionalAst::new(c1, p1, p2).to_type())
     }
 
     fn parse_type_single(&mut self) -> ParserResult<TypeAst> {
-        let p1 = self.parse_type_single_with_namespace();
-        let p2 = self.parse_type_single_with_self();
-        let p3 = self.parse_type_single_without_namespace_or_self();
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+        let p1 = parse_alternate!(
+            self,
+            Parser::parse_type_single_with_namespace,
+            Parser::parse_type_single_with_self,
+            Parser::parse_type_single_without_namespace_or_self);
+        Ok(p1)
     }
 
     fn parse_type_single_with_namespace(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self
-            .parse_identifier()
-            .parse_one_or_more(Box::new(self.parse_token_double_colon()))?;
-        let p2 = self.parse_token_double_colon().parse_once()?;
-        let p3 = self
-            .parse_generic_identifier()
-            .parse_one_or_more(Box::new(self.parse_token_double_colon()))?;
-        return Ok(TypeAst::new(c1, p1, p3));
+        let p1 = parse_one_or_more!(self, Parser::parse_identifier, Parser::parse_token_double_colon);
+        let p2 = parse_once!(self, Parser::parse_token_double_colon);
+        let p3 = parse_one_or_more!(self, Parser::parse_generic_identifier, Parser::parse_token_double_colon);
+        Ok(TypeAst::new(c1, p1, p3))
     }
 
     fn parse_type_single_with_self(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_self_type_keyword().parse_once()?;
-        let p2 = self
-            .parse_types_after_self()
-            .parse_optional()
-            .unwrap_or_default();
-        return Ok(TypeAst::new(
-            c1,
-            vec![],
-            vec![p1].into_iter().chain(p2.into_iter()).collect(),
-        ));
+        let p1 = parse_once!(self, Parser::parse_self_type);
+        let p2 = parse_optional!(self, Parser::parse_types_after_self).unwrap_or_default();
+        Ok(TypeAst::new(c1, vec![], vec![p1].into_iter().chain(p2.into_iter()).collect()))
     }
 
     fn parse_types_after_self(&mut self) -> ParserResult<Vec<GenericIdentifierAst>> {
-        let p1 = self.parse_token_double_colon().parse_once()?;
-        let p2 = self
-            .parse_generic_identifier()
-            .parse_zero_or_more(Box::new(self.parse_token_double_colon()));
-        return Ok(p2);
+        let p1 = parse_once!(self, Parser::parse_token_double_colon);
+        let p2 = parse_zero_or_more!(self, Parser::parse_generic_identifier, Parser::parse_token_double_colon);
+        Ok(p2)
     }
 
     fn parse_type_single_without_namespace_or_self(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self
-            .parse_generic_identifier()
-            .parse_one_or_more(Box::new(self.parse_token_double_colon()))?;
-        return Ok(TypeAst::new(c1, vec![], p1));
+        let p1 = parse_one_or_more!(self, Parser::parse_generic_identifier, Parser::parse_token_double_colon);
+        Ok(TypeAst::new(c1, vec![], p1))
     }
 
-    fn parse_self_type_keyword(&mut self) -> ParserResult<GenericIdentifierAst> {
+    fn parse_self_type(&mut self) -> ParserResult<GenericIdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::SelfType).parse_once()?;
-        return Ok(GenericIdentifierAst::new(c1, "Self".to_string(), None));
+        let p1 = parse_once!(self, Parser::parse_keyword_self_type);
+        Ok(GenericIdentifierAst::new(c1, "Self".to_string(), None))
     }
 
     fn parse_type_tuple(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self
-            .parse_type()
-            .parse_zero_or_more(Box::new(self.parse_token_comma()));
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(TypeTupleAst::new(c1, p1, p2, p3).to_type());
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_zero_or_more!(self, Parser::parse_type, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(TypeTupleAst::new(c1, p1, p2, p3).to_type())
     }
 
     fn parse_type_non_union(&mut self) -> ParserResult<TypeAst> {
-        let p1 = self.parse_type_single();
-        let p2 = self.parse_type_tuple();
-        let p3 = self.parse_type_optional();
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+        let p1 = parse_alternate!(self,
+            Parser::parse_type_single,
+            Parser::parse_type_tuple,
+            Parser::parse_type_optional);
+        Ok(p1)
     }
 
     fn parse_type_variant(&mut self) -> ParserResult<TypeAst> {
         let c1 = self.current_pos();
-        let p1 = self
-            .parse_type_non_union()
-            .parse_two_or_more(Box::new(self.parse_token_union()))?;
-        return Ok(TypeVariantAst::new(c1, p1).to_type());
+        let p1 = parse_two_or_more!(self, Parser::parse_type_non_union, Parser::parse_token_union);
+        Ok(TypeVariantAst::new(c1, p1).to_type())
     }
 
     fn parse_identifier(&mut self) -> ParserResult<IdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_lexeme_identifier().parse_once()?;
-        return Ok(IdentifierAst::new(c1, p1.metadata));
+        let p1 = parse_once!(self, Parser::parse_lexeme_identifier);
+        Ok(IdentifierAst::new(c1, p1.metadata))
     }
 
     fn parse_numeric_identifier(&mut self) -> ParserResult<IdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_lexeme_dec_integer().parse_once()?;
-        return Ok(IdentifierAst::new(c1, p1.metadata));
+        let p1 = parse_once!(self, Parser::parse_lexeme_dec_integer);
+        Ok(IdentifierAst::new(c1, p1.metadata))
     }
 
     fn parse_upper_identifier(&mut self) -> ParserResult<IdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_lexeme_upper_identifier().parse_once()?;
-        return Ok(IdentifierAst::new(c1, p1.metadata));
+        let p1 = parse_once!(self, Parser::parse_lexeme_upper_identifier);
+        Ok(IdentifierAst::new(c1, p1.metadata))
     }
 
     fn parse_generic_identifier(&mut self) -> ParserResult<GenericIdentifierAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_upper_identifier().parse_once()?;
-        let p2 = self.parse_generic_arguments().parse_optional();
-        return Ok(GenericIdentifierAst::new(c1, p1.value, p2));
+        let p1 = parse_once!(self, Parser::parse_upper_identifier);
+        let p2 = parse_optional!(self, Parser::parse_generic_arguments);
+        Ok(GenericIdentifierAst::new(c1, p1.value, p2))
     }
 
     fn parse_literal(&mut self) -> ParserResult<LiteralAst> {
-        let p1 = self.parse_literal_float();
-        let p2 = self.parse_literal_integer();
-        let p3 = self.parse_literal_string();
-        let p4 = self.parse_literal_tuple(Rc::new(RefCell::new(|| self.parse_expression())));
-        let p5 = self.parse_literal_array(Rc::new(RefCell::new(|| self.parse_expression())));
-        let p6 = self.parse_literal_boolean();
-        let p7 = p1.or(p2).or(p3).or(p4).or(p5).or(p6).parse_once()?;
-        return Ok(p7);
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_float,
+            Parser::parse_literal_integer,
+            Parser::parse_literal_string,
+            Parser::parse_literal_tuple,
+            Parser::parse_literal_array,
+            Parser::parse_literal_boolean);
+        Ok(p1)
     }
 
     fn parse_literal_float(&mut self) -> ParserResult<LiteralAst> {
-        let p1 = self.parse_literal_float_b10().parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, Parser::parse_literal_float_b10);
+        Ok(p1)
     }
 
     fn parse_literal_integer(&mut self) -> ParserResult<LiteralAst> {
-        let p1 = self.parse_literal_integer_b10();
-        let p2 = self.parse_literal_integer_b02();
-        let p3 = self.parse_literal_integer_b16();
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_integer_b10,
+            Parser::parse_literal_integer_b02,
+            Parser::parse_literal_integer_b16);
+        Ok(p1)
     }
 
     fn parse_literal_string(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_lexeme_string().parse_once()?;
-        return Ok(LiteralAst::new_string(c1, p1));
+        let p1 = parse_once!(self, Parser::parse_lexeme_string);
+        Ok(LiteralAst::new_string(c1, p1))
     }
 
-    fn parse_literal_tuple(
-        &mut self,
-        item: Rc<RefCell<dyn FnMut() -> ParserResult<ExpressionAst>>>,
-    ) -> ParserResult<LiteralAst> {
-        let p1 = self.parse_literal_tuple_0_items();
-        let p2 = self.parse_literal_tuple_1_items(item.clone());
-        let p3 = self.parse_literal_tuple_n_items(item.clone());
-        let p4 = p1.or(p2).or(p3).parse_once()?;
-        return Ok(p4);
+    fn parse_literal_tuple(&mut self) -> ParserResult<LiteralAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_tuple_0_items,
+            Parser::parse_literal_tuple_1_items,
+            Parser::parse_literal_tuple_n_items);
+        Ok(p1)
     }
 
-    fn parse_literal_array(
-        &mut self,
-        item: Rc<RefCell<dyn FnMut() -> ParserResult<ExpressionAst>>>,
-    ) -> ParserResult<LiteralAst> {
-        let p1 = self.parse_literal_array_0_items();
-        let p2 = self.parse_literal_array_n_items(item.clone());
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(p3);
+    fn parse_literal_comp_tuple(&mut self) -> ParserResult<LiteralAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_tuple_0_items,
+            Parser::parse_literal_comp_tuple_1_items,
+            Parser::parse_literal_comp_tuple_n_items);
+        Ok(p1)
+    }
+
+    fn parse_literal_array(&mut self) -> ParserResult<LiteralAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_array_0_items,
+            Parser::parse_literal_array_n_items);
+        Ok(p1)
+    }
+
+    fn parse_literal_comp_array(&mut self) -> ParserResult<LiteralAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_array_0_items,
+            Parser::parse_literal_comp_array_n_items);
+        Ok(p1)
     }
 
     fn parse_literal_boolean(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_keyword(Keywords::True);
-        let p2 = self.parse_keyword(Keywords::False);
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(LiteralAst::new_boolean(c1, p3));
+        let p1 = parse_alternate!(self,
+            Parser::parse_keyword_true,
+            Parser::parse_keyword_false);
+         Ok(LiteralAst::new_boolean(c1, p1))
     }
 
     fn parse_literal_float_b10(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_numeric_prefix_op().parse_optional();
-        let p2 = self.parse_lexeme_dec_integer().parse_once()?;
-        let p3 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
-        let p4 = self.parse_lexeme_dec_integer().parse_once()?;
-        let p5 = self.parse_float_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_float(
-            c1,
-            p1,
-            p2,
-            p3,
-            p4,
-            p5.and_then(|x| Some(TypeAst::from(x))),
-        ));
+        let p1 = parse_optional!(self, Parser::parse_numeric_prefix_op);
+        let p2 = parse_once!(self, Parser::parse_lexeme_dec_integer);
+        let p3 = parse_once!(self, Parser::parse_token_dot);
+        let p4 = parse_once!(self, Parser::parse_lexeme_dec_integer);
+        let p5 = parse_optional!(self, Parser::parse_float_postfix_type);
+        Ok(LiteralAst::new_float(c1, p1, p2, p3, p4, p5.and_then(|x| Some(TypeAst::from(x)))))
     }
 
     fn parse_literal_integer_b10(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_numeric_prefix_op().parse_optional();
-        let p2 = self.parse_lexeme_dec_integer().parse_once()?;
-        let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(
-            c1,
-            p1,
-            p2,
-            p3.and_then(|x| Some(TypeAst::from(x))),
-        ));
+        let p1 = parse_optional!(self, Parser::parse_numeric_prefix_op);
+        let p2 = parse_once!(self, Parser::parse_lexeme_dec_integer);
+        let p3 = parse_optional!(self, Parser::parse_integer_postfix_type);
+        Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))))
     }
 
     fn parse_literal_integer_b02(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_numeric_prefix_op().parse_optional();
-        let p2 = self.parse_lexeme_bin_integer().parse_once()?;
-        let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(
-            c1,
-            p1,
-            p2,
-            p3.and_then(|x| Some(TypeAst::from(x))),
-        ));
+        let p1 = parse_optional!(self, Parser::parse_numeric_prefix_op);
+        let p2 = parse_once!(self, Parser::parse_lexeme_bin_integer);
+        let p3 = parse_optional!(self, Parser::parse_integer_postfix_type);
+        Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))))
     }
 
     fn parse_literal_integer_b16(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_numeric_prefix_op().parse_optional();
-        let p2 = self.parse_lexeme_hex_integer().parse_once()?;
-        let p3 = self.parse_integer_postfix_type().parse_optional();
-        return Ok(LiteralAst::new_integer(
-            c1,
-            p1,
-            p2,
-            p3.and_then(|x| Some(TypeAst::from(x))),
-        ));
+        let p1 = parse_optional!(self, Parser::parse_numeric_prefix_op);
+        let p2 = parse_once!(self, Parser::parse_lexeme_hex_integer);
+        let p3 = parse_optional!(self, Parser::parse_integer_postfix_type);
+        Ok(LiteralAst::new_integer(c1, p1, p2, p3.and_then(|x| Some(TypeAst::from(x)))))
     }
 
     fn parse_numeric_prefix_op(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_sub();
-        let p2 = self.parse_token_add();
-        let p3 = p1.or(p2).parse_once()?;
-        return Ok(p3);
+        let p1 = parse_alternate!(self,
+            Parser::parse_token_sub,
+            Parser::parse_token_add);
+        Ok(p1)
     }
 
     fn parse_integer_postfix_type(&mut self) -> ParserResult<IdentifierAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkUnderscore)
-            .parse_once()?;
-        let p2 = self.parse_characters("i8");
-        let p3 = self.parse_characters("i16");
-        let p4 = self.parse_characters("i32");
-        let p5 = self.parse_characters("i64");
-        let p6 = self.parse_characters("i128");
-        let p7 = self.parse_characters("i256");
-        let p8 = self.parse_characters("u8");
-        let p9 = self.parse_characters("u16");
-        let p10 = self.parse_characters("u32");
-        let p11 = self.parse_characters("u64");
-        let p12 = self.parse_characters("u128");
-        let p13 = self.parse_characters("u256");
-        let p14 = p2
-            .or(p3)
-            .or(p4)
-            .or(p5)
-            .or(p6)
-            .or(p7)
-            .or(p8)
-            .or(p9)
-            .or(p10)
-            .or(p11)
-            .or(p12)
-            .or(p13)
-            .parse_once()?;
-        return Ok(IdentifierAst::new(p14.pos, p14.metadata));
+        let p1 = parse_once!(self, Parser::parse_token_underscore);
+        let p2 = parse_alternate!(self,
+            |x| Parser::parse_characters(x, "i8"),
+            |x| Parser::parse_characters(x, "i16"),
+            |x| Parser::parse_characters(x, "i32"),
+            |x| Parser::parse_characters(x, "i64"),
+            |x| Parser::parse_characters(x, "i128"),
+            |x| Parser::parse_characters(x, "i256"),
+            |x| Parser::parse_characters(x, "u8"),
+            |x| Parser::parse_characters(x, "u16"),
+            |x| Parser::parse_characters(x, "u32"),
+            |x| Parser::parse_characters(x, "u64"),
+            |x| Parser::parse_characters(x, "u128"),
+            |x| Parser::parse_characters(x, "u256"));
+        Ok(IdentifierAst::new(p2.pos, p2.metadata))
     }
 
     fn parse_float_postfix_type(&mut self) -> ParserResult<IdentifierAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkUnderscore)
-            .parse_once()?;
-        let p2 = self.parse_characters("f8");
-        let p3 = self.parse_characters("f16");
-        let p4 = self.parse_characters("f32");
-        let p5 = self.parse_characters("f64");
-        let p6 = self.parse_characters("f128");
-        let p7 = self.parse_characters("f256");
-        let p8 = p2.or(p3).or(p4).or(p5).or(p6).or(p7).parse_once()?;
-        return Ok(IdentifierAst::new(p8.pos, p8.metadata));
+        let p1 = parse_once!(self, Parser::parse_token_underscore);
+        let p2 = parse_alternate!(self,
+            |x| Parser::parse_characters(x, "f8"),
+            |x| Parser::parse_characters(x, "f16"),
+            |x| Parser::parse_characters(x, "f32"),
+            |x| Parser::parse_characters(x, "f64"),
+            |x| Parser::parse_characters(x, "f128"),
+            |x| Parser::parse_characters(x, "f256"));
+        Ok(IdentifierAst::new(p2.pos, p2.metadata))
     }
 
     fn parse_literal_tuple_0_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LiteralAst::new_tuple(c1, p1, vec![], p2));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LiteralAst::new_tuple(c1, p1, vec![], p2))
     }
 
-    fn parse_literal_tuple_1_items(
-        &mut self,
-        item: Rc<RefCell<dyn FnMut<(), Output = ParserResult<ExpressionAst>>>>,
-    ) -> ParserResult<LiteralAst> {
+    fn parse_literal_tuple_1_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = item.borrow_mut()().parse_once()?;
-        let p3 = self.parse_token_comma().parse_once()?;
-        let p4 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LiteralAst::new_tuple(c1, p1, vec![p2], p4));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_once!(self, Parser::parse_expression);
+        let p3 = parse_once!(self, Parser::parse_token_comma);
+        let p4 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LiteralAst::new_tuple(c1, p1, vec![p2], p4))
     }
 
-    fn parse_literal_tuple_n_items(
-        &mut self,
-        item: Rc<RefCell<dyn FnMut<(), Output = ParserResult<ExpressionAst>>>>,
-    ) -> ParserResult<LiteralAst> {
+    fn parse_literal_comp_tuple_1_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = item.borrow_mut()().parse_two_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(LiteralAst::new_tuple(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_once!(self, Parser::parse_comp_value);
+        let p3 = parse_once!(self, Parser::parse_token_comma);
+        let p4 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LiteralAst::new_tuple(c1, p1, vec![p2], p4))
+    }
+
+    fn parse_literal_tuple_n_items(&mut self) -> ParserResult<LiteralAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_two_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LiteralAst::new_tuple(c1, p1, p2, p3))
+    }
+
+    fn parse_literal_comp_tuple_n_items(&mut self) -> ParserResult<LiteralAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_two_or_more!(self, Parser::parse_comp_value, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(LiteralAst::new_tuple(c1, p1, p2, p3))
     }
 
     fn parse_literal_array_0_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_square_bracket().parse_once()?;
-        let p2 = self.parse_type().parse_once()?;
-        let p3 = self
-            .parse_token_primitive(TokenType::TkComma)
-            .parse_once()?;
-        let p4 = self.parse_lexeme_dec_integer().parse_once()?;
-        let p5 = self.parse_token_right_square_bracket().parse_once()?;
-        return Ok(LiteralAst::new_array_0(c1, p1, p2, p3, p4, p5));
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_once!(self, Parser::parse_type);
+        let p3 = parse_once!(self, Parser::parse_token_comma);
+        let p4 = parse_once!(self, Parser::parse_lexeme_dec_integer);
+        let p5 = parse_once!(self, Parser::parse_token_right_square_bracket);
+        Ok(LiteralAst::new_array_0(c1, p1, p2, p3, p4, p5))
     }
 
-    fn parse_literal_array_n_items(
-        &mut self,
-        item: Rc<RefCell<dyn FnMut() -> ParserResult<ExpressionAst>>>,
-    ) -> ParserResult<LiteralAst> {
+    fn parse_literal_array_n_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_token_left_square_bracket().parse_once()?;
-        let p2 = item.borrow_mut()().parse_one_or_more(Box::new(self.parse_token_comma()))?;
-        let p3 = self.parse_token_right_square_bracket().parse_once()?;
-        return Ok(LiteralAst::new_array_n(c1, p1, p2, p3));
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_one_or_more!(self, Parser::parse_expression, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
+        Ok(LiteralAst::new_array_n(c1, p1, p2, p3))
     }
 
-    fn parse_global_constant_value(&mut self) -> ParserResult<ExpressionAst> {
-        let p1 = self
-            .parse_literal_float()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p2 = self
-            .parse_literal_integer()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p3 = self
-            .parse_literal_string()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p4 = self
-            .parse_literal_tuple(Rc::new(RefCell::new(|| self.parse_global_constant_value())))
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p5 = self
-            .parse_literal_array(Rc::new(RefCell::new(|| self.parse_global_constant_value())))
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p6 = self
-            .parse_literal_boolean()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Literal))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p7 = self
-            .parse_global_object_initializer()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::ObjectInitializer))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p8 = self
-            .parse_identifier()
-            .enum_wrapper(Box::new(PrimaryExpressionAst::Identifier))
-            .enum_wrapper(Box::new(ExpressionAst::Primary));
-        let p9 = p1
-            .or(p2)
-            .or(p3)
-            .or(p4)
-            .or(p5)
-            .or(p6)
-            .or(p7)
-            .or(p8)
-            .parse_once()?;
-        return Ok(p9);
-    }
-
-    fn parse_global_object_initializer(&mut self) -> ParserResult<ObjectInitializerAst> {
+    fn parse_literal_comp_array_n_items(&mut self) -> ParserResult<LiteralAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_type_single().parse_once()?;
-        let p2 = self
-            .parse_global_object_initializer_arguments()
-            .parse_once()?;
-        return Ok(ObjectInitializerAst::new(c1, p1, p2));
+        let p1 = parse_once!(self, Parser::parse_token_left_square_bracket);
+        let p2 = parse_one_or_more!(self, Parser::parse_comp_value, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_square_bracket);
+        Ok(LiteralAst::new_array_n(c1, p1, p2, p3))
     }
 
-    fn parse_global_object_initializer_arguments(
-        &mut self,
-    ) -> ParserResult<ObjectInitializerArgumentGroupAst> {
-        let c1 = self.current_pos();
-        let p1 = self.parse_token_left_parenthesis().parse_once()?;
-        let p2 = self
-            .parse_global_object_initializer_argument_named()
-            .parse_zero_or_more(Box::new(self.parse_token_comma()));
-        let p3 = self.parse_token_right_parenthesis().parse_once()?;
-        return Ok(ObjectInitializerArgumentGroupAst::new(c1, p1, p2, p3));
+    fn parse_comp_value(&mut self) -> ParserResult<ExpressionAst> {
+        let p1 = parse_alternate!(self,
+            Parser::parse_literal_float,
+            Parser::parse_literal_integer,
+            Parser::parse_literal_string,
+            Parser::parse_literal_comp_tuple,
+            Parser::parse_literal_comp_array,
+            Parser::parse_literal_boolean);
+        Ok(ExpressionAst::Primary(PrimaryExpressionAst::Literal(p1)))
     }
 
-    fn parse_global_object_initializer_argument_named(
-        &mut self,
-    ) -> ParserResult<ObjectInitializerArgumentAst> {
+    fn parse_comp_object_initializer(&mut self) -> ParserResult<ObjectInitializerAst> {
         let c1 = self.current_pos();
-        let p1 = self.parse_identifier().parse_once()?;
-        let p2 = self.parse_token_assign().parse_once()?;
-        let p3 = self.parse_global_constant_value().parse_once()?;
-        return Ok(ObjectInitializerArgumentAst::new_named(
-            c1,
-            p1,
-            p2,
-            Box::new(p3),
-        ));
+        let p1 = parse_once!(self, Parser::parse_type_single);
+        let p2 = parse_once!(self, Parser::parse_comp_object_initializer_arguments);
+        Ok(ObjectInitializerAst::new(c1, p1, p2))
+    }
+
+    fn parse_comp_object_initializer_arguments(&mut self) -> ParserResult<ObjectInitializerArgumentGroupAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_token_left_parenthesis);
+        let p2 = parse_zero_or_more!(self, Parser::parse_comp_object_initializer_argument_named, Parser::parse_token_comma);
+        let p3 = parse_once!(self, Parser::parse_token_right_parenthesis);
+        Ok(ObjectInitializerArgumentGroupAst::new(c1, p1, p2, p3))
+    }
+
+    fn parse_comp_object_initializer_argument_named(&mut self) -> ParserResult<ObjectInitializerArgumentAst> {
+        let c1 = self.current_pos();
+        let p1 = parse_once!(self, Parser::parse_identifier);
+        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p3 = parse_once!(self, Parser::parse_comp_value);
+        Ok(ObjectInitializerArgumentAst::new_named(c1, p1, p2, Box::new(p3)))
     }
 
     fn parse_keyword(&mut self, keyword: Keywords) -> ParserResult<TokenAst> {
@@ -2276,348 +1869,404 @@ impl Parser {
     }
 
     fn parse_token_left_curly_brace(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLeftCurlyBrace)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLeftCurlyBrace));
+        Ok(p1)
     }
 
     fn parse_token_right_curly_brace(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkRightCurlyBrace)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkRightCurlyBrace));
+        Ok(p1)
     }
 
     fn parse_token_left_parenthesis(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLeftParenthesis)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLeftParenthesis));
+        Ok(p1)
     }
 
     fn parse_token_right_parenthesis(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkRightParenthesis)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkRightParenthesis));
+        Ok(p1)
     }
 
     fn parse_token_left_square_bracket(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLeftSquareBracket)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLeftSquareBracket));
+        Ok(p1)
     }
 
     fn parse_token_right_square_bracket(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkRightSquareBracket)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkRightSquareBracket));
+        Ok(p1)
     }
 
     fn parse_token_dot(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_double_colon(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkColon)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkColon)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkDot));
+        Ok(p1)
     }
 
     fn parse_token_comma(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkComma)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkComma));
+        Ok(p1)
     }
 
     fn parse_token_colon(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkColon)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkColon));
+        Ok(p1)
+    }
+
+    fn parse_token_at(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAt));
+        Ok(p1)
     }
 
     fn parse_token_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
     }
 
     fn parse_token_newline(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkNewLine)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_rightward_arrow(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkMinusSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkGreaterThanSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_double_dot(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
-        let p2 = self.parse_token_primitive(TokenType::TkDot).parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNewLine));
+        Ok(p1)
     }
 
     fn parse_token_question_mark(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkQuestionMark)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkQuestionMark));
+        Ok(p1)
     }
 
     fn parse_token_borrow(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkAmpersand)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAmpersand));
+        Ok(p1)
     }
 
     fn parse_token_union(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkVerticalBar)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkVerticalBar));
+        Ok(p1)
     }
 
     fn parse_token_eq(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_ne(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkExclamationMark)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_le(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLessThanSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_ge(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkGreaterThanSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
     }
 
     fn parse_token_lt(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLessThanSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLessThanSign));
+        Ok(p1)
     }
 
     fn parse_token_gt(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkGreaterThanSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_ss(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkLessThanSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        let p3 = self
-            .parse_token_primitive(TokenType::TkGreaterThanSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_add_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPlusSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_sub_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkMinusSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkGreaterThanSign));
+        Ok(p1)
     }
 
     fn parse_token_add(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPlusSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPlusSign));
+        Ok(p1)
     }
 
     fn parse_token_sub(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkMinusSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_mul_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_div_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkForwardSlash)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_rem_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_mod_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        let p3 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_exp_assign(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        let p3 = self
-            .parse_token_primitive(TokenType::TkEqualsSign)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkMinusSign));
+        Ok(p1)
     }
 
     fn parse_token_mul(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        Ok(p1)
     }
 
     fn parse_token_div(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkForwardSlash)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkForwardSlash));
+        Ok(p1)
     }
 
     fn parse_token_rem(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_mod(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkPercentSign)
-            .parse_once()?;
-        return Ok(p1);
-    }
-
-    fn parse_token_exp(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        let p2 = self
-            .parse_token_primitive(TokenType::TkAsterisk)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        Ok(p1)
     }
 
     fn parse_token_underscore(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkUnderscore)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
+        Ok(p1)
     }
 
     fn parse_token_speech_mark(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkSpeechMark)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkSpeechMark));
+        Ok(p1)
+    }
+
+    fn parse_token_double_colon(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, Parser::parse_token_colon);
+        let p2 = parse_once!(self, Parser::parse_token_colon);
+        Ok(p1)
+    }
+
+    fn parse_token_double_dot(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, Parser::parse_token_dot);
+        let p2 = parse_once!(self, Parser::parse_token_dot);
+        Ok(p1)
+    }
+
+    fn parse_token_rightward_arrow(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkMinusSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkGreaterThanSign));
+        Ok(p1)
+    }
+
+    fn parse_token_ne(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkExclamationMark));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_le(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLessThanSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_ge(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkGreaterThanSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_add_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPlusSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_sub_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkMinusSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_ss(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkLessThanSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        let p3 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkGreaterThanSign));
+        Ok(p1)
+    }
+
+    fn parse_token_mul_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_div_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkForwardSlash));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_rem_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_mod_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        let p3 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_exp_assign(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        let p3 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkEqualsSign));
+        Ok(p1)
+    }
+
+    fn parse_token_mod(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkPercentSign));
+        Ok(p1)
+    }
+
+    fn parse_token_exp(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        Ok(p1)
     }
 
     fn parse_token_no_token(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
-        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
+        Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()))
+    }
+    
+    fn parse_keyword_cls(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Cls));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_sup(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Sup));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_ext(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Ext));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_fun(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Fun));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_cor(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Cor));
+        Ok(p1)
+    }
+
+    fn parse_keyword_use(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Use));
+        Ok(p1)
+    }
+
+    fn parse_keyword_let(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Let));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_mut(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Mut));
+        Ok(p1)
+    }
+    
+    fn parse_keyword_cmp(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Cmp));
+        Ok(p1)
+    }
+
+    fn parse_keyword_where(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Where));
+        Ok(p1)
+    }
+
+    fn parse_keyword_self_val(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::SelfVal));
+        Ok(p1)
+    }
+
+    fn parse_keyword_self_type(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::SelfType));
+        Ok(p1)
+    }
+
+    fn parse_keyword_case(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Case));
+        Ok(p1)
+    }
+
+    fn parse_keyword_loop(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Loop));
+        Ok(p1)
+    }
+
+    fn parse_keyword_with(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::With));
+        Ok(p1)
+    }
+
+    fn parse_keyword_gen(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Gen));
+        Ok(p1)
+    }
+
+    fn parse_keyword_ret(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Ret));
+        Ok(p1)
+    }
+
+    fn parse_keyword_skip(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Skip));
+        Ok(p1)
+    }
+
+    fn parse_keyword_exit(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Exit));
+        Ok(p1)
+    }
+
+    fn parse_keyword_else(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Else));
+        Ok(p1)
+    }
+
+    fn parse_keyword_false(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::False));
+        Ok(p1)
+    }
+
+    fn parse_keyword_true(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::True));
+        Ok(p1)
+    }
+
+    fn parse_keyword_of(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Of));
+        Ok(p1)
+    }
+
+    fn parse_keyword_in(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::In));
+        Ok(p1)
+    }
+
+    fn parse_keyword_pin(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Pin));
+        Ok(p1)
+    }
+
+    fn parse_keyword_rel(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Rel));
+        Ok(p1)
+    }
+
+    fn parse_keyword_as(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::As));
+        Ok(p1)
+    }
+
+    fn parse_keyword_is(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Is));
+        Ok(p1)
+    }
+
+    fn parse_keyword_and(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::And));
+        Ok(p1)
+    }
+
+    fn parse_keyword_or(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Or));
+        Ok(p1)
+    }
+
+    fn parse_keyword_not(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Not));
+        Ok(p1)
+    }
+
+    fn parse_keyword_async(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Async));
+        Ok(p1)
+    }
+
+    fn parse_keyword_step(&mut self) -> ParserResult<TokenAst> {
+        let p1 = parse_once!(self, |x| Parser::parse_keyword(x, Keywords::Step));
+        Ok(p1)
     }
 
     fn parse_lexeme_dec_integer(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut integer = "".to_string();
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkNumber(num))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
             integer.push(char::from(p1.metadata.as_bytes()[0]));
         }
         if integer.len() == 0 {
@@ -2629,134 +2278,119 @@ impl Parser {
     fn parse_lexeme_bin_integer(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut integer = "".to_string();
-        self.parse_token_primitive(TokenType::TkNumber('0'))
-            .parse_once()?;
-        self.parse_token_primitive(TokenType::TkCharacter('b'))
-            .parse_once()?;
+        parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber('0')));
+        parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter('b')));
+
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkNumber(num))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
             integer.push(char::from(p1.metadata.as_bytes()[0]));
-            if num.is_digit(2) {
+            if !num.is_digit(2) {
                 return Err(SyntaxError::new(c1, "Expected binary integer".to_string()));
             }
         }
-        if integer.len() == 0 {
+
+        if integer.is_empty() {
             return Err(SyntaxError::new(c1, "Expected binary integer".to_string()));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, integer));
+
+        Ok(TokenAst::new(c1, TokenType::NoToken, integer))
     }
 
     fn parse_lexeme_hex_integer(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut integer = "".to_string();
-        self.parse_token_primitive(TokenType::TkNumber('0'))
-            .parse_once()?;
-        self.parse_token_primitive(TokenType::TkCharacter('x'))
-            .parse_once()?;
+        parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber('0')));
+        parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter('x')));
+
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkNumber(num))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
             integer.push(char::from(p1.metadata.as_bytes()[0]));
             if !num.is_digit(16) {
-                return Err(SyntaxError::new(
-                    c1,
-                    "Expected hexadecimal integer".to_string(),
-                ));
+                return Err(SyntaxError::new(c1, "Expected hexadecimal integer".to_string()));
             }
         }
-        if integer.len() == 0 {
-            return Err(SyntaxError::new(
-                c1,
-                "Expected hexadecimal integer".to_string(),
-            ));
+
+        if integer.is_empty() {
+            return Err(SyntaxError::new(c1, "Expected hexadecimal integer".to_string()));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, integer));
+
+        Ok(TokenAst::new(c1, TokenType::NoToken, integer))
     }
 
     fn parse_lexeme_string(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
-        self.parse_token_speech_mark().parse_once()?;
+        parse_once!(self, Parser::parse_token_speech_mark);
+
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkCharacter(string))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
             identifier.push(p1.metadata.as_bytes()[0] as char);
         }
-        self.parse_token_speech_mark().parse_once()?;
-        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
+
+        parse_once!(self, Parser::parse_token_speech_mark);
+        Ok(TokenAst::new(c1, TokenType::NoToken, identifier))
     }
 
     fn parse_lexeme_identifier(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
+
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkCharacter(string))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
             identifier.push(p1.metadata.as_bytes()[0] as char);
         }
-        if identifier.len() == 0 {
+
+        if identifier.is_empty() {
             return Err(SyntaxError::new(c1, "Expected identifier".to_string()));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
+
+        Ok(TokenAst::new(c1, TokenType::NoToken, identifier))
     }
 
     fn parse_lexeme_upper_identifier(&mut self) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
+
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
-            let p1 = self
-                .parse_token_primitive(TokenType::TkCharacter(string))
-                .parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
             identifier.push(p1.metadata.as_bytes()[0] as char);
         }
-        if identifier.len() == 0 {
-            return Err(SyntaxError::new(
-                c1,
-                "Expected upper identifier".to_string(),
-            ));
+
+        if identifier.is_empty() {
+            return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
         }
+
         if (identifier.as_bytes()[0] as char).is_lowercase() {
-            return Err(SyntaxError::new(
-                c1,
-                "Expected upper identifier".to_string(),
-            ));
+            return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, identifier));
+
+        Ok(TokenAst::new(c1, TokenType::NoToken, identifier))
     }
 
     fn parse_characters(&mut self, characters: &str) -> ParserResult<TokenAst> {
         let c1 = self.current_pos();
         let mut identifier = "".to_string();
+
         for c in characters.chars() {
-            let p1 = self.parse_character(c).parse_once()?;
+            let p1 = parse_once!(self, |x| Parser::parse_character(x, c));
             identifier.push(p1.metadata.as_bytes()[0] as char);
         }
+
         if identifier != characters {
-            return Err(SyntaxError::new(
-                c1,
-                format!("Expected '{}', got '{}'", characters, identifier),
-            ));
+            return Err(SyntaxError::new(c1, format!("Expected '{}', got '{}'", characters, identifier)));
         }
-        return Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()));
+
+        Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()))
     }
 
     fn parse_character(&mut self, character: char) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::TkCharacter(character))
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(character)));
+        Ok(p1)
     }
 
     fn parse_eof(&mut self) -> ParserResult<TokenAst> {
-        let p1 = self
-            .parse_token_primitive(TokenType::EndOfFile)
-            .parse_once()?;
-        return Ok(p1);
+        let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::EndOfFile));
+        Ok(p1)
     }
 
     fn parse_token_primitive(&mut self, token_type: TokenType) -> ParserResult<TokenAst> {
