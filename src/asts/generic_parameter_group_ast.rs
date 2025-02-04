@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::generic_parameter_ast::GenericParameterAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl GenericParameterGroupAst {
             args,
             tok_bracket_r,
         }
+    }
+}
+
+impl Ast for GenericParameterGroupAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

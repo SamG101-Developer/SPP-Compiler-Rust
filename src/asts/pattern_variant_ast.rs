@@ -78,6 +78,57 @@ impl Ast for PatternVariantAst {
     }
 }
 
+impl Ast for PatternVariantNestedForDestructureArrayAst {
+    fn get_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureArrayAst::DestructureArray(destructure_array) => { destructure_array.get_pos() }
+            PatternVariantNestedForDestructureArrayAst::DestructureTuple(destructure_tuple) => { destructure_tuple.get_pos() }
+            PatternVariantNestedForDestructureArrayAst::DestructureObject(destructure_object) => { destructure_object.get_pos() }
+            PatternVariantNestedForDestructureArrayAst::Skip1Args(skip_1_args) => skip_1_args.get_pos(),
+            PatternVariantNestedForDestructureArrayAst::SkipNArgs(skip_n_args) => skip_n_args.get_pos(),
+            PatternVariantNestedForDestructureArrayAst::Expression(expression) => { expression.get_pos() }
+            PatternVariantNestedForDestructureArrayAst::Literal(literal) => literal.get_pos(),
+            PatternVariantNestedForDestructureArrayAst::SingleIdentifier(single_identifier) => { single_identifier.get_pos() }
+        }
+    }
+}
+
+impl Ast for PatternVariantNestedForDestructureTupleAst {
+    fn get_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureTupleAst::DestructureArray(destructure_array) => { destructure_array.get_pos() }
+            PatternVariantNestedForDestructureTupleAst::DestructureTuple(destructure_tuple) => { destructure_tuple.get_pos() }
+            PatternVariantNestedForDestructureTupleAst::DestructureObject(destructure_object) => { destructure_object.get_pos() }
+            PatternVariantNestedForDestructureTupleAst::Skip1Args(skip_1_args) => skip_1_args.get_pos(),
+            PatternVariantNestedForDestructureTupleAst::SkipNArgs(skip_n_args) => skip_n_args.get_pos(),
+            PatternVariantNestedForDestructureTupleAst::Expression(expression) => { expression.get_pos() }
+            PatternVariantNestedForDestructureTupleAst::Literal(literal) => literal.get_pos(),
+            PatternVariantNestedForDestructureTupleAst::SingleIdentifier(single_identifier) => { single_identifier.get_pos() }
+        }
+    }
+}
+
+impl Ast for PatternVariantNestedForDestructureObjectAst {
+    fn get_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureObjectAst::AttrBind(attr_bind) => attr_bind.get_pos(),
+            PatternVariantNestedForDestructureObjectAst::SkipNArgs(skip_n_args) => skip_n_args.get_pos(),
+            PatternVariantNestedForDestructureObjectAst::SingleIdentifier(single_identifier) => single_identifier.get_pos(),
+        }
+    }
+}
+
+impl Ast for PatternVariantNestedForAttributeBindingAst {
+    fn get_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForAttributeBindingAst::DestructureArray(destructure_array) => destructure_array.get_pos(),
+            PatternVariantNestedForAttributeBindingAst::DestructureTuple(destructure_tuple) => destructure_tuple.get_pos(),
+            PatternVariantNestedForAttributeBindingAst::DestructureObject(destructure_object) => destructure_object.get_pos(),
+            PatternVariantNestedForAttributeBindingAst::Literal(literal) => literal.get_pos(),
+        }
+    }
+}
+
 impl ToBinaryExpression for PatternVariantAst {
     fn to_binary_expression(pos: usize, lhs: ExpressionAst, op: TokenAst, rhs: Self) -> ExpressionAst {
         ExpressionAst::Primary(PrimaryExpressionAst::Is(IsExpressionAst::new(pos, Box::new(lhs), op, Box::new(rhs))))

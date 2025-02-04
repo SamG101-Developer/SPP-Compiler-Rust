@@ -1,4 +1,5 @@
 use crate::analyse::scopes::scope::Scope;
+use crate::asts::ast::Ast;
 use crate::asts::generic_parameter_group_ast::GenericParameterGroupAst;
 use crate::asts::sup_implementation_ast::SupImplementationAst;
 use crate::asts::token_ast::TokenAst;
@@ -39,5 +40,11 @@ impl SupPrototypeExtensionAst {
             body,
             scope_cls: None,
         }
+    }
+}
+
+impl Ast for SupPrototypeExtensionAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

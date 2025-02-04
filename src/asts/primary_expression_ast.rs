@@ -36,9 +36,7 @@ impl Ast for PrimaryExpressionAst {
             PrimaryExpressionAst::SelfIdentifier(token) => token.get_pos(),
             PrimaryExpressionAst::Parenthesized(parenthesized) => parenthesized.get_pos(),
             PrimaryExpressionAst::Gen(gen) => gen.get_pos(),
-            PrimaryExpressionAst::ObjectInitializer(object_initializer) => {
-                object_initializer.get_pos()
-            }
+            PrimaryExpressionAst::ObjectInitializer(object_initializer) => { object_initializer.get_pos() }
             PrimaryExpressionAst::InnerScope(inner_scope) => inner_scope.get_pos(),
             PrimaryExpressionAst::Case(case) => case.get_pos(),
             PrimaryExpressionAst::Loop(loop_) => loop_.get_pos(),

@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::identifier_ast::IdentifierAst;
 
@@ -18,6 +19,12 @@ impl TypeAst {
             namespace,
             types,
         }
+    }
+}
+
+impl Ast for TypeAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }
 

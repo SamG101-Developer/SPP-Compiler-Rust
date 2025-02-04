@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
 pub struct PostfixExpressionOperatorNotKeywordAst {
@@ -13,5 +14,11 @@ impl PostfixExpressionOperatorNotKeywordAst {
             tok_access,
             tok_not,
         }
+    }
+}
+
+impl Ast for PostfixExpressionOperatorNotKeywordAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

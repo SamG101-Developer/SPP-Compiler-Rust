@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::inner_scope_ast::InnerScopeAst;
 use crate::asts::token_ast::TokenAst;
@@ -26,5 +27,11 @@ impl WithExpressionAst {
             expression,
             body,
         }
+    }
+}
+
+impl Ast for WithExpressionAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

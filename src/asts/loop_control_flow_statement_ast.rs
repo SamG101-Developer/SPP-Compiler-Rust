@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::loop_control_flow_statement_final_part_ast::LoopControlFlowStatementFinalPartAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -18,5 +19,11 @@ impl LoopControlFlowStatementAst {
             tok_exits,
             final_part,
         }
+    }
+}
+
+impl Ast for LoopControlFlowStatementAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

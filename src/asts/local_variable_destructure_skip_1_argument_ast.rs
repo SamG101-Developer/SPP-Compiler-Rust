@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
 pub struct LocalVariableDestructureSkip1ArgumentAst {
@@ -11,5 +12,11 @@ impl LocalVariableDestructureSkip1ArgumentAst {
             pos,
             tok_underscore,
         }
+    }
+}
+
+impl Ast for LocalVariableDestructureSkip1ArgumentAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

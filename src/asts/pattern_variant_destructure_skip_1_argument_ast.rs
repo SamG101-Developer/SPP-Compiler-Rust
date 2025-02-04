@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
 pub struct PatternVariantDestructureSkip1ArgumentAst {
@@ -11,5 +12,11 @@ impl PatternVariantDestructureSkip1ArgumentAst {
             pos,
             tok_underscore,
         }
+    }
+}
+
+impl Ast for PatternVariantDestructureSkip1ArgumentAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

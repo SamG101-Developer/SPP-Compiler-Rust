@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::local_variable_ast::LocalVariableNestedForDestructureArrayAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl LocalVariableDestructureArrayAst {
             elements,
             tok_bracket_r,
         }
+    }
+}
+
+impl Ast for LocalVariableDestructureArrayAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

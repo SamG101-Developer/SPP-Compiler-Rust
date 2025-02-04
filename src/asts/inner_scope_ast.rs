@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::statement_ast::StatementAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl InnerScopeAst {
             members,
             tok_brace_r,
         }
+    }
+}
+
+impl Ast for InnerScopeAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

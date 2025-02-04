@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::local_variable_ast::LocalVariableNestedForAttributeBindingAst;
 use crate::asts::token_ast::TokenAst;
@@ -22,5 +23,11 @@ impl LocalVariableAttributeBindingAst {
             tok_assign,
             value,
         }
+    }
+}
+
+impl Ast for LocalVariableAttributeBindingAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

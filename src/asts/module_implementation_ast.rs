@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::module_member_ast::ModuleMemberAst;
 
 pub struct ModuleImplementationAst {
@@ -8,5 +9,11 @@ pub struct ModuleImplementationAst {
 impl ModuleImplementationAst {
     pub fn new(pos: usize, members: Vec<ModuleMemberAst>) -> Self {
         Self { pos, members }
+    }
+}
+
+impl Ast for ModuleImplementationAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

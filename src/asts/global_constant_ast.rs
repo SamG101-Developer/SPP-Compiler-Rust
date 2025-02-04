@@ -1,4 +1,5 @@
 use crate::asts::annotation_ast::AnnotationAst;
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
@@ -36,5 +37,11 @@ impl GlobalConstantAst {
             tok_assign,
             value,
         }
+    }
+}
+
+impl Ast for GlobalConstantAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

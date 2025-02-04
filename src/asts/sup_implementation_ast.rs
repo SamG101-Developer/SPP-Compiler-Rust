@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::sup_member_ast::SupMemberAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl SupImplementationAst {
             members,
             tok_brace_r,
         }
+    }
+}
+
+impl Ast for SupImplementationAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

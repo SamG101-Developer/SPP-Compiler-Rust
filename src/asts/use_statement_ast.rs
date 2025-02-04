@@ -1,4 +1,5 @@
 use crate::asts::annotation_ast::AnnotationAst;
+use crate::asts::ast::Ast;
 use crate::asts::generic_parameter_group_ast::GenericParameterGroupAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
@@ -32,5 +33,11 @@ impl UseStatementAst {
             tok_assign,
             old_type,
         }
+    }
+}
+
+impl Ast for UseStatementAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

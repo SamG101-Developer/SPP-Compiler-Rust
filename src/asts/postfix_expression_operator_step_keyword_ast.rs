@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 
 pub struct PostfixExpressionOperatorStepKeywordAst {
@@ -13,5 +14,11 @@ impl PostfixExpressionOperatorStepKeywordAst {
             tok_access,
             tok_step,
         }
+    }
+}
+
+impl Ast for PostfixExpressionOperatorStepKeywordAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

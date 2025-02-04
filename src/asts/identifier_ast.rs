@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::generic_identifier_ast::GenericIdentifierAst;
 use crate::asts::type_ast::TypeAst;
 
@@ -9,6 +10,12 @@ pub struct IdentifierAst {
 impl IdentifierAst {
     pub fn new(pos: usize, value: String) -> Self {
         Self { pos, value }
+    }
+}
+
+impl Ast for IdentifierAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }
 

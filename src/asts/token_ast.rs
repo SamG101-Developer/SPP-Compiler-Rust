@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::lexer::token::TokenType;
 
 pub struct TokenAst {
@@ -31,5 +32,11 @@ impl Default for TokenAst {
             token_type: TokenType::NoToken,
             metadata: String::new(),
         }
+    }
+}
+
+impl Ast for TokenAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

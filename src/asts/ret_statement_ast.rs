@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
@@ -17,5 +18,11 @@ impl RetStatementAst {
             expr,
             _func_ret_type: None,
         }
+    }
+}
+
+impl Ast for RetStatementAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

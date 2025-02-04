@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl PatternGuardAst {
             tok_guard,
             expression,
         }
+    }
+}
+
+impl Ast for PatternGuardAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

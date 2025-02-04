@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::object_initializer_argument_group_ast::ObjectInitializerArgumentGroupAst;
 use crate::asts::type_ast::TypeAst;
 
@@ -18,5 +19,11 @@ impl ObjectInitializerAst {
             type_,
             object_args_group,
         }
+    }
+}
+
+impl Ast for ObjectInitializerAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

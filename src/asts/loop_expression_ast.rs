@@ -4,6 +4,7 @@ use crate::asts::loop_else_statement_ast::LoopElseStatementAst;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 use std::iter::Map;
+use crate::asts::ast::Ast;
 
 pub struct LoopExpressionAst {
     pub pos: usize,
@@ -33,5 +34,11 @@ impl LoopExpressionAst {
             _loop_type_info: Default::default(),
             _loop_level: Default::default(),
         }
+    }
+}
+
+impl Ast for LoopExpressionAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl ParenthesizedExpressionAst {
             expr,
             tok_parenthesis_r,
         }
+    }
+}
+
+impl Ast for ParenthesizedExpressionAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

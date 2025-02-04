@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::inner_scope_ast::InnerScopeAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl LoopElseStatementAst {
             tok_else,
             body,
         }
+    }
+}
+
+impl Ast for LoopElseStatementAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

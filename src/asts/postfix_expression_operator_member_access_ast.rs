@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::identifier_ast::IdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl PostfixExpressionOperatorMemberAccessAst {
             tok_access,
             field,
         }
+    }
+}
+
+impl Ast for PostfixExpressionOperatorMemberAccessAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

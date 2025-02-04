@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::local_variable_single_identifier_ast::LocalVariableSingleIdentifierAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -18,5 +19,11 @@ impl LocalVariableDestructureSkipNArgumentsAst {
             tok_variadic,
             binding,
         }
+    }
+}
+
+impl Ast for LocalVariableDestructureSkipNArgumentsAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

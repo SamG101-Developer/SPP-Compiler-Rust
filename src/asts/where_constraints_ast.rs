@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::token_ast::TokenAst;
 use crate::asts::type_ast::TypeAst;
 
@@ -21,5 +22,11 @@ impl WhereConstraintsAst {
             tok_colon,
             constraints,
         }
+    }
+}
+
+impl Ast for WhereConstraintsAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

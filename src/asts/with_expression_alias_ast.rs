@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::local_variable_ast::LocalVariableAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl WithExpressionAliasAst {
             variable,
             tok_assign,
         }
+    }
+}
+
+impl Ast for WithExpressionAliasAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::object_initializer_argument_ast::ObjectInitializerArgumentAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -21,5 +22,11 @@ impl ObjectInitializerArgumentGroupAst {
             args,
             tok_parenthesis_r,
         }
+    }
+}
+
+impl Ast for ObjectInitializerArgumentGroupAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

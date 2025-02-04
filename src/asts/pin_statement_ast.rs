@@ -1,3 +1,4 @@
+use crate::asts::ast::Ast;
 use crate::asts::expression_ast::ExpressionAst;
 use crate::asts::token_ast::TokenAst;
 
@@ -14,5 +15,11 @@ impl PinStatementAst {
             tok_pin,
             expressions,
         }
+    }
+}
+
+impl Ast for PinStatementAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }

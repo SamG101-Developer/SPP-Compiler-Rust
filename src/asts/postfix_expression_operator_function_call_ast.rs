@@ -1,4 +1,5 @@
 use crate::analyse::scopes::scope::Scope;
+use crate::asts::ast::Ast;
 use crate::asts::function_call_argument_group_ast::FunctionCallArgumentGroupAst;
 use crate::asts::function_prototype_ast::FunctionPrototypeAst;
 use crate::asts::generic_argument_group_ast::GenericArgumentGroupAst;
@@ -30,5 +31,11 @@ impl PostfixExpressionOperatorFunctionCallAst {
             _overload: None,
             _is_async: None,
         }
+    }
+}
+
+impl Ast for PostfixExpressionOperatorFunctionCallAst {
+    fn get_pos(&self) -> usize {
+        self.pos
     }
 }
