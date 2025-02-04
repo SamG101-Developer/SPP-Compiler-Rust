@@ -368,7 +368,6 @@ impl Parser {
     }
 
     fn parse_sup_use_statement(&mut self) -> ParserResult<SupUseStatementAst> {
-        let c1 = self.current_pos();
         let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
         let mut p2 = parse_once!(self, Parser::parse_use_statement);
         p2.annotations = p1;
@@ -955,7 +954,6 @@ impl Parser {
     }
 
     fn parse_global_use_statement(&mut self) -> ParserResult<UseStatementAst> {
-        let c1 = self.current_pos();
         let p1 = parse_zero_or_more!(self, Parser::parse_annotation, Parser::parse_token_newline);
         let mut p2 = parse_once!(self, Parser::parse_use_statement);
         p2.annotations = p1;

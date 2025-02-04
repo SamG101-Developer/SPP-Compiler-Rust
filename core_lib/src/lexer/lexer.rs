@@ -5,6 +5,10 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    pub fn new(code: String) -> Self {
+        Lexer { code }
+    }
+
     pub fn lex(self) -> TokenStream {
         let mut tokens = vec![];
 

@@ -1,11 +1,7 @@
-[package]
-name = "SPP-Compiler-Rust"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["core_lib", "proc_macros", "tests"]
+resolver = "2"
 
-[dependencies]
-syn = { version = "*", features = ["full"] }
-quote = "*"
-
-[lib]
-proc-macro = true
+#[dev-dependencies]
+#core_lib = { path = "core_lib" }
+#proc_macros = { path = "proc_macros" }
