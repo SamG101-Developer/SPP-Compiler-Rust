@@ -86,6 +86,7 @@ use crate::asts::statement_ast::StatementAst;
 use crate::asts::subroutine_prototype_ast::SubroutinePrototypeAst;
 use crate::asts::sup_implementation_ast::SupImplementationAst;
 use crate::asts::sup_member_ast::SupMemberAst;
+use crate::asts::sup_method_prototype_ast::SupMethodPrototypeAst;
 use crate::asts::sup_prototype_extension_ast::SupPrototypeExtensionAst;
 use crate::asts::sup_prototype_functions_ast::SupPrototypeFunctionsAst;
 use crate::asts::sup_use_statement_ast::SupUseStatementAst;
@@ -119,6 +120,16 @@ pub struct Parser {
 }
 
 impl Parser {
+    pub fn new(token_stream: TokenStream) -> Self {
+        let token_len = token_stream.len();
+        Self {
+            tokens: token_stream,
+            index: 0,
+            token_len,
+            error: SyntaxError::new(0, "".to_string()),
+        }
+    }
+
     fn current_pos(&self) -> usize {
         self.index
     }
@@ -248,6 +259,10 @@ macro_rules! parse_optional_with_wrapping {
 
 
 impl Parser {
+    pub fn parse(&mut self) -> ParserResult<ModulePrototypeAst> {
+        self.parse_root()
+    }
+
     fn parse_root(&mut self) -> ParserResult<ModulePrototypeAst> {
         let p1 = parse_once!(self, Parser::parse_module_prototype);
         let p2 = parse_once!(self, Parser::parse_eof);
@@ -347,7 +362,7 @@ impl Parser {
         Ok(p1)
     }
 
-    fn parse_sup_method_prototype(&mut self) -> ParserResult<FunctionPrototypeAst> {
+    fn parse_sup_method_prototype(&mut self) -> ParserResult<SupMethodPrototypeAst> {
         let p1 = parse_once!(self, Parser::parse_function_prototype);
         Ok(p1)
     }
@@ -1358,14 +1373,15 @@ impl Parser {
     }
 
     fn parse_unary_op(&mut self) -> ParserResult<UnaryExpressionOperatorAst> {
-        let p1 = parse_once!(self, Parser::parse_unary_op_async_call);
+        let p1 = parse_alternate_with_wrapping!(self,
+            (UnaryExpressionOperatorAst::Async, Parser::parse_unary_op_async_call));
         Ok(p1)
     }
 
-    fn parse_unary_op_async_call(&mut self) -> ParserResult<UnaryExpressionOperatorAst> {
+    fn parse_unary_op_async_call(&mut self) -> ParserResult<UnaryExpressionOperatorAsyncAst> {
         let c1 = self.current_pos();
         let p1 = parse_once!(self, Parser::parse_keyword_async);
-        Ok(UnaryExpressionOperatorAst::Async(UnaryExpressionOperatorAsyncAst::new(c1, p1)))
+        Ok(UnaryExpressionOperatorAsyncAst::new(c1, p1))
     }
 
     fn parse_postfix_op(&mut self) -> ParserResult<PostfixExpressionOperatorAst> {
@@ -2315,7 +2331,7 @@ impl Parser {
 
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
-            identifier.push(p1.metadata.as_bytes()[0] as char);
+            identifier.push(string);
         }
 
         if identifier.is_empty() {
@@ -2331,7 +2347,7 @@ impl Parser {
 
         while let TokenType::TkCharacter(string) = self.tokens[self.current_pos()] {
             let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
-            identifier.push(p1.metadata.as_bytes()[0] as char);
+            identifier.push(string);
         }
 
         if identifier.is_empty() {
