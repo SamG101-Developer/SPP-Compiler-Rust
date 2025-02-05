@@ -885,8 +885,8 @@ impl Parser {
 
     fn parse_with_expression_lhs_alias(&mut self) -> ParserResult<WithExpressionAliasAst> {
         let c1 = self.current_pos();
-        let p1 = parse_once!(self, Parser::parse_local_variable);
-        let p2 = parse_once!(self, Parser::parse_token_assign);
+        let p1 = parse_once!(self, Parser::parse_keyword_as);
+        let p2 = parse_once!(self, Parser::parse_local_variable);
         Ok(WithExpressionAliasAst::new(c1, p1, p2))
     }
 
@@ -2078,7 +2078,7 @@ impl Parser {
 
     fn parse_token_exp(&mut self) -> ParserResult<TokenAst> {
         let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
-        let _a = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
+        let p2 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkAsterisk));
         Ok(p1)
     }
 
@@ -2257,7 +2257,7 @@ impl Parser {
         let mut integer = "".to_string();
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
             let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
-            integer.push(char::from(p1.metadata.as_bytes()[0]));
+            integer.push(p1.metadata.as_bytes()[0] as char);
         }
 
         if integer.is_empty() {
@@ -2275,7 +2275,7 @@ impl Parser {
 
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
             let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
-            integer.push(char::from(p1.metadata.as_bytes()[0]));
+            integer.push(p1.metadata.as_bytes()[0] as char);
             if !num.is_digit(2) {
                 return Err(SyntaxError::new(c1, "Expected binary integer".to_string()));
             }
@@ -2296,7 +2296,7 @@ impl Parser {
 
         while let TokenType::TkNumber(num) = self.tokens[self.current_pos()] {
             let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkNumber(num)));
-            integer.push(char::from(p1.metadata.as_bytes()[0]));
+            integer.push(p1.metadata.as_bytes()[0] as char);
             if !num.is_digit(16) {
                 return Err(SyntaxError::new(c1, "Expected hexadecimal integer".to_string()));
             }
@@ -2331,11 +2331,11 @@ impl Parser {
         loop {
             match self.tokens[self.current_pos()] {
                 TokenType::TkCharacter(string) => {
-                    parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
                     identifier.push(string);
                 },
                 TokenType::TkUnderscore => {
-                    parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
                     identifier.push('_');
                 },
                 _ => break,
@@ -2357,14 +2357,14 @@ impl Parser {
         loop {
             match self.tokens[self.current_pos()] {
                 TokenType::TkCharacter(string) => {
-                    parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
                     if identifier.is_empty() && string.is_lowercase() {
                         return Err(SyntaxError::new(c1, "Expected upper identifier".to_string()));
                     }
                     identifier.push(string);
                 },
                 TokenType::TkUnderscore => {
-                    parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
+                    let p1 = parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkUnderscore));
                     identifier.push('_');
                 },
                 _ => break,
@@ -2448,6 +2448,7 @@ impl Parser {
 
         let token_character = match self.tokens[self.index] {
             TokenType::TkCharacter(c) => String::from(c),
+            TokenType::TkNumber(c) => String::from(c),
             _ => "".to_string(),
         };
 

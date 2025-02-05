@@ -5,16 +5,16 @@ use crate::asts::token_ast::TokenAst;
 #[derive(Clone, Debug)]
 pub struct WithExpressionAliasAst {
     pub pos: usize,
+    pub tok_as: TokenAst,
     pub variable: LocalVariableAst,
-    pub tok_assign: TokenAst,
 }
 
 impl WithExpressionAliasAst {
-    pub fn new(pos: usize, variable: LocalVariableAst, tok_assign: TokenAst) -> Self {
-        Self {
+    pub fn new(pos: usize, tok_as: TokenAst, variable: LocalVariableAst) -> WithExpressionAliasAst {
+        WithExpressionAliasAst {
             pos,
+            tok_as,
             variable,
-            tok_assign,
         }
     }
 }
