@@ -1,8 +1,8 @@
 extern crate core_lib;
 extern crate proc_macros;
 
-use core_lib::lexer::lexer::Lexer;
-use core_lib::parser::parser::Parser;
+use core_lib::spp::lexer::lexer::Lexer;
+use core_lib::spp::parser::parser::Parser;
 use proc_macros::{should_parse_fail, should_parse_pass};
 
 #[test]
