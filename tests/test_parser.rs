@@ -214,7 +214,7 @@ fn test_generic_argument_type_unnamed() {
 fn test_generic_argument_comp_named() {
     "
     fun my_function() -> Void {
-        other_function[N=1, M=2]()
+        other_function[n=1, m=2]()
     }
     "
 }
@@ -234,7 +234,7 @@ fn test_generic_argument_comp_unnamed() {
 fn test_generic_arguments() {
     "
     fun my_function() -> Void {
-        other_function[I32, Str, T=Bool, N=1]()
+        other_function[I32, Str, T=Bool, n=1]()
     }
     "
 }
@@ -275,7 +275,7 @@ fn test_generic_parameter_type() {
 #[should_parse_pass]
 fn test_generic_parameter_comp_required() {
     "
-    fun my_function[cmp N: I32, cmp M: I32]() -> Void { }
+    fun my_function[cmp n: I32, cmp m: I32]() -> Void { }
     "
 }
 
@@ -283,7 +283,7 @@ fn test_generic_parameter_comp_required() {
 #[should_parse_pass]
 fn test_generic_parameter_comp_optional() {
     "
-    fun my_function[cmp N: I32=1, cmp M: I32=2]() -> Void { }
+    fun my_function[cmp n: I32=1, cmp m: I32=2]() -> Void { }
     "
 }
 
@@ -291,7 +291,7 @@ fn test_generic_parameter_comp_optional() {
 #[should_parse_pass]
 fn test_generic_parameter_comp_variadic() {
     "
-    fun my_function[cmp ..M: I32]() -> Void { }
+    fun my_function[cmp ..m: I32]() -> Void { }
     "
 }
 
@@ -299,7 +299,7 @@ fn test_generic_parameter_comp_variadic() {
 #[should_parse_pass]
 fn test_generic_parameter_comp() {
     "
-    fun my_function[cmp N: I32, cmp M: I32=1, cmp ..O: I32]() -> Void { }
+    fun my_function[cmp n: I32, cmp m: I32=1, cmp ..o: I32]() -> Void { }
     "
 }
 
@@ -307,7 +307,7 @@ fn test_generic_parameter_comp() {
 #[should_parse_pass]
 fn test_generic_parameters() {
     "
-    fun my_function[cmp N: I32, T, cmp M: I32=1, U=Str, cmp ..O: I32, ..V]() -> Void { }
+    fun my_function[cmp n: I32, T, cmp m: I32=1, U=Str, cmp ..o: I32, ..V]() -> Void { }
     "
 }
 
@@ -583,7 +583,27 @@ fn test_gen_no_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_expression() {
+fn test_gen_mov_expression() {
+    "
+    fun my_function() -> Void {
+        gen variable
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn test_gen_ref_expression() {
+    "
+    fun my_function() -> Void {
+        gen &variable
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn test_gen_mut_expression() {
     "
     fun my_function() -> Void {
         gen &mut variable
@@ -958,7 +978,7 @@ fn parse_case_destructure_literal() {
 fn parse_case_destructure_expression() {
     "
     fun my_function() -> Void {
-        case array {
+        case array of {
             == some_function_call() { }
             == other_function_call() { }
         }

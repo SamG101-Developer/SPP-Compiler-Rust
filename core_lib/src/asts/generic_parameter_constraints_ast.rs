@@ -6,15 +6,15 @@ use crate::asts::type_ast::TypeAst;
 pub struct GenericParameterConstraintsAst {
     pub pos: usize,
     pub tok_colon: TokenAst,
-    pub constraints: Vec<TypeAst>,
+    pub constraint: TypeAst,
 }
 
 impl GenericParameterConstraintsAst {
-    pub fn new(pos: usize, tok_colon: TokenAst, constraints: Vec<TypeAst>) -> Self {
+    pub fn new(pos: usize, tok_colon: TokenAst, constraint: TypeAst) -> Self {
         Self {
             pos,
             tok_colon,
-            constraints,
+            constraint,
         }
     }
 }

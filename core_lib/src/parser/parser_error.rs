@@ -3,9 +3,9 @@ use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
 pub struct SyntaxError {
-    pub pos: usize,
-    pub expected_tokens: HashSet<TokenType>,
-    pub message: String,
+    pos: usize,
+    expected_tokens: HashSet<TokenType>,
+    message: String,
 }
 
 impl SyntaxError {
@@ -15,5 +15,23 @@ impl SyntaxError {
             expected_tokens: HashSet::new(),
             message,
         }
+    }
+
+    pub fn add_expected_token(&mut self, token: TokenType) {
+        if self.expected_tokens.insert(token) {
+            if let Some(pos) = self.message.find("£") {
+                self.message.insert_str(pos, &("'".to_string() + token.to_string().as_str() + "', "));
+            }
+        }
+    }
+
+    pub fn reset(&mut self, pos: usize, message: String) {
+        self.pos = pos;
+        self.expected_tokens.clear();
+        self.message = message;
+    }
+
+    pub fn get_pos(&self) -> usize {
+        self.pos
     }
 }

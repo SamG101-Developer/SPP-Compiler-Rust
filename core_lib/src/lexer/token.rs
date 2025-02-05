@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TokenType {
     TkCharacter(char),
     TkNumber(char),
@@ -36,6 +36,48 @@ pub enum TokenType {
     Keyword,
     EndOfFile,
     TkExclamationMark,
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            TokenType::TkCharacter(c) => c.to_string(),
+            TokenType::TkNumber(c) => c.to_string(),
+            TokenType::TkEqualsSign => "=".to_string(),
+            TokenType::TkPlusSign => "+".to_string(),
+            TokenType::TkMinusSign => "-".to_string(),
+            TokenType::TkAsterisk => "*".to_string(),
+            TokenType::TkForwardSlash => "/".to_string(),
+            TokenType::TkPercentSign => "%".to_string(),
+            TokenType::TkCaret => "^".to_string(),
+            TokenType::TkLessThanSign => "<".to_string(),
+            TokenType::TkGreaterThanSign => ">".to_string(),
+            TokenType::TkLeftParenthesis => "(".to_string(),
+            TokenType::TkRightParenthesis => ")".to_string(),
+            TokenType::TkLeftSquareBracket => "[".to_string(),
+            TokenType::TkRightSquareBracket => "]".to_string(),
+            TokenType::TkLeftCurlyBrace => "{".to_string(),
+            TokenType::TkRightCurlyBrace => "}".to_string(),
+            TokenType::TkQuestionMark => "?".to_string(),
+            TokenType::TkColon => ":".to_string(),
+            TokenType::TkAmpersand => "&".to_string(),
+            TokenType::TkVerticalBar => "|".to_string(),
+            TokenType::TkDot => ".".to_string(),
+            TokenType::TkComma => ",".to_string(),
+            TokenType::TkAt => "@".to_string(),
+            TokenType::TkUnderscore => "_".to_string(),
+            TokenType::TkSpeechMark => "\"".to_string(),
+            TokenType::TkWhitespace => " ".to_string(),
+            TokenType::TkNewLine => "\n".to_string(),
+            TokenType::TkDollar => "$".to_string(),
+            TokenType::TkUnknown(c) => c.to_string(),
+            TokenType::NoToken => "".to_string(),
+            TokenType::Keyword => "<Kw>".to_string(),
+            TokenType::EndOfFile => "<EOF>".to_string(),
+            TokenType::TkExclamationMark => "!".to_string(),
+        };
+        write!(f, "{}", str)
+    }
 }
 
 pub enum Keywords {

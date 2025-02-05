@@ -135,10 +135,8 @@ impl Parser {
     }
 
     fn store_error(&mut self, pos: usize, message: String) -> bool {
-        if pos > self.error.pos {
-            self.error.expected_tokens.clear();
-            self.error.pos = pos;
-            self.error.message = message;
+        if pos > self.error.get_pos() {
+            self.error.reset(pos, message);
             true
         } else {
             false
@@ -169,20 +167,24 @@ macro_rules! parse_optional {
 
 macro_rules! parse_zero_or_more {
     ($self:ident, $method:expr, $sep:expr) => {{
+        let mut done_1_parse = false;
         let mut result = vec![];
+        let mut temp_index = $self.index;
         loop {
-            let index = $self.index;
-            let one_result = $method($self);
-            match one_result {
+            if done_1_parse {
+                let sep = parse_optional!($self, $sep);
+                if sep.is_none() { break result; }
+            }
+
+            let ast = $method($self);
+            match ast {
                 Ok(ast) => {
                     result.push(ast);
-                    let ast = parse_optional!($self, $sep);
-                    if ast.is_none() {
-                        break result;
-                    }
+                    done_1_parse = true;
+                    temp_index = $self.index;
                 }
                 Err(_) => {
-                    $self.index = index;
+                    $self.index = temp_index;
                     break result;
                 }
             }
@@ -632,7 +634,7 @@ impl Parser {
     fn parse_generic_inline_constraints(&mut self) -> ParserResult<GenericParameterConstraintsAst> {
         let c1 = self.current_pos();
         let p1 = parse_once!(self, Parser::parse_token_colon);
-        let p2 = parse_one_or_more!(self, Parser::parse_type, Parser::parse_token_comma);
+        let p2 = parse_once!(self, Parser::parse_type);
         Ok(GenericParameterConstraintsAst::new(c1, p1, p2))
     }
 
@@ -2342,7 +2344,7 @@ impl Parser {
 
         parse_once!(self, Parser::parse_token_no_token);
         match self.tokens[self.current_pos()] {
-            TokenType::TkCharacter(string) => {
+            TokenType::TkCharacter(string) if string.is_lowercase() => {
                 parse_once!(self, |x| Parser::parse_token_primitive(x, TokenType::TkCharacter(string)));
                 identifier.push(string);
             },
@@ -2443,7 +2445,7 @@ impl Parser {
                     Err(SyntaxError::new(c1, format!("Expected '{}', got '{}'", character, string)))
                 }
                 else {
-                    Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()))
+                    Ok(TokenAst::new(c1, TokenType::NoToken, string.to_string()))
                 }
             },
             TokenType::TkNumber(string) => {
@@ -2452,7 +2454,7 @@ impl Parser {
                     Err(SyntaxError::new(c1, format!("Expected '{}', got '{}'", character, string)))
                 }
                 else {
-                    Ok(TokenAst::new(c1, TokenType::NoToken, "".to_string()))
+                    Ok(TokenAst::new(c1, TokenType::NoToken, string.to_string()))
                 }
             },
             _ => Err(SyntaxError::new(c1, "Expected upper identifier".to_string())),
@@ -2487,14 +2489,14 @@ impl Parser {
         }
 
         if self.tokens[self.index] != token_type {
-            if self.error.pos == self.index {
-                self.error.expected_tokens.insert(token_type);
+            if self.error.get_pos() == self.index {
+                self.error.add_expected_token(token_type);
                 return Err(self.error.clone());
             }
 
-            let new_error = format!("Expected £, got '{:?}'", self.tokens[self.index]);
+            let new_error = format!("Expected £, got '{}'", self.tokens[self.index]);
             if self.store_error(self.index, new_error) {
-                self.error.expected_tokens.insert(token_type);
+                self.error.add_expected_token(token_type);
             }
             return Err(self.error.clone());
         }
