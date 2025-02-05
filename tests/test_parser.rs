@@ -291,7 +291,7 @@ fn test_generic_parameter_comp_optional() {
 #[should_parse_pass]
 fn test_generic_parameter_comp_variadic() {
     "
-    fun my_function[..cmp M: I32]() -> Void { }
+    fun my_function[cmp ..M: I32]() -> Void { }
     "
 }
 
@@ -299,7 +299,7 @@ fn test_generic_parameter_comp_variadic() {
 #[should_parse_pass]
 fn test_generic_parameter_comp() {
     "
-    fun my_function[cmp N: I32, cmp M: I32=1, ..cmp O: I32]() -> Void { }
+    fun my_function[cmp N: I32, cmp M: I32=1, cmp ..O: I32]() -> Void { }
     "
 }
 
@@ -307,7 +307,7 @@ fn test_generic_parameter_comp() {
 #[should_parse_pass]
 fn test_generic_parameters() {
     "
-    fun my_function[cmp N: I32, T, cmp M: I32=1, U=Str, ..cmp O: I32, ..V]() -> Void { }
+    fun my_function[cmp N: I32, T, cmp M: I32=1, U=Str, cmp ..O: I32, ..V]() -> Void { }
     "
 }
 
@@ -723,6 +723,526 @@ fn test_inner_scope() {
         {
             inner_function()
         }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn test_global_use_statement() {
+    "
+    use MyString = Str
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn test_global_constant() {
+    "
+    cmp constant: I32 = 1
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_let_statement_initialized() {
+    "
+    fun my_function() -> Void {
+        let a = 1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_let_statement_uninitialized() {
+    "
+    fun my_function() -> Void {
+        let a: I32
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_with_single_skip() {
+    "
+    fun my_function() -> Void {
+        let (a, _, b, _) = tuple
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_with_multiple_skip() {
+    "
+    fun my_function() -> Void {
+        let (a, .., b) = tuple
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_with_single_identifier_alias() {
+    "
+    fun my_function() -> Void {
+        let MyType(attr as a) = object
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_single_identifier() {
+    "
+    fun my_function() -> Void {
+        let a = 1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_array() {
+    "
+    fun my_function() -> Void {
+        let [a, b, c] = array
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_tuple() {
+    "
+    fun my_function() -> Void {
+        let (a, b, c) = tuple
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_object() {
+    "
+    fun my_function() -> Void {
+        let MyType(a, b, c) = object
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_local_variable_destructure_object_attr_binding() {
+    "
+    fun my_function() -> Void {
+        let MyType(attr1=Point(x, y), attr2) = object
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_assignment_statement() {
+    "
+    fun my_function() -> Void {
+        variable = 1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_assignment_multiple_statement() {
+    "
+    fun my_function() -> Void {
+        a, b, c = 1, 2, 3
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_else_pattern() {
+    "
+    fun my_function() -> Void {
+        case value {
+        }
+        else {
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_else_case_pattern_with_condition() {
+    "
+    fun my_function() -> Void {
+        case value == 1 {
+        }
+        else case value == 2 {
+        }
+        else case value == 3 {
+        }
+        else {
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_array() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            [a, b, c] { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_tuple() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            (a, b, c) { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_object() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            MyType(a, b, c) { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_object_attr_binding() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            MyType(attr1=Point(x, y), attr2) { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_literal() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            1 { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_case_destructure_expression() {
+    "
+    fun my_function() -> Void {
+        case array {
+            == some_function_call() { }
+            == other_function_call() { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_pattern_guard() {
+    "
+    fun my_function() -> Void {
+        case value of {
+            1 and some_condition() { }
+            2 and other_condition() { }
+        }
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_convention_mutable_borrow() {
+    "
+    fun my_function(a: &mut I32) -> Void {
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_convention_immutable_borrow() {
+    "
+    fun my_function(a: &I32) -> Void {
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_object_initializer_argument_named() {
+    "
+    fun my_function() -> Void {
+        MyType(attr1=1, attr2=2)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_object_initializer_argument_unnamed() {
+    "
+    fun my_function() -> Void {
+        MyType(attr1, attr2)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_object_initializer_argument_default() {
+    "
+    fun my_function() -> Void {
+        MyType(1, ..other)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_object_initializer_arguments() {
+    "
+    fun my_function() -> Void {
+        MyType(attr1, attr2=other, ..other)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_optional() {
+    "
+    fun my_function() -> Void {
+        let a: ?I32
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_tuple() {
+    "
+    fun my_function() -> Void {
+        let a: (I32, I32)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_union() {
+    "
+    fun my_function() -> Void {
+        let a: I32 | Str
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_single() {
+    "
+    fun my_function() -> Void {
+        let a: I32
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_with_namespace() {
+    "
+    fun my_function() -> Void {
+        let a: std::inner::Str
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_nested_type() {
+    "
+    fun my_function() -> Void {
+        let a: std::inner::Str::ValueType
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_with_self() {
+    "
+    fun my_function() -> Void {
+        let a: Self
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_with_self_nested() {
+    "
+    fun my_function() -> Void {
+        let a: Self::InnerType
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_float() {
+    "
+    fun my_function() -> Void {
+        let a = 1.0
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_integer() {
+    "
+    fun my_function() -> Void {
+        let a = 1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_integer_with_sign() {
+    "
+    fun my_function() -> Void {
+        let a = -1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_integer_with_type() {
+    "
+    fun my_function() -> Void {
+        let a = 1_u64
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_integer_base_2() {
+    "
+    fun my_function() -> Void {
+        let a = 0b101
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_integer_base_16() {
+    "
+    fun my_function() -> Void {
+        let a = 0x1F
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_string() {
+    "
+    fun my_function() -> Void {
+        let a = \"string\"
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_boolean() {
+    "
+    fun my_function() -> Void {
+        let a = true
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_literal_tuple_0_items() {
+    "
+    fun my_function() -> Void {
+        let a = ()
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_tuple_1_item() {
+    "
+    fun my_function() -> Void {
+        let a = (1,)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_tuple_n_items() {
+    "
+    fun my_function() -> Void {
+        let a = (1, 2, 3)
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_array_0_items() {
+    "
+    fun my_function() -> Void {
+        let a = [I32, 8]
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_array_n_items() {
+    "
+    fun my_function() -> Void {
+        let a = [1, 2, 3]
     }
     "
 }

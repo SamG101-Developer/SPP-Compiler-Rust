@@ -14,7 +14,7 @@ pub fn should_parse_pass(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #fn_signature {
             let mut parser = Parser::new(Lexer::new(#fn_body.to_string()).lex());
             let result = parser.parse();
-            assert!(result.is_ok());
+            assert!(result.is_ok(), "Expected the parser to pass, but it failed: {:?}", result);
         }
     };
 
@@ -33,7 +33,7 @@ pub fn should_parse_fail(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #fn_signature {
             let mut parser = Parser::new(Lexer::new(#fn_body.to_string()).lex());
             let result = parser.parse();
-            assert!(result.is_err());
+            assert!(result.is_err(), "Expected the parser to fail, but it passed: {:?}", result);
         }
     };
 
