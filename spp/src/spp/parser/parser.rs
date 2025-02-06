@@ -748,13 +748,13 @@ impl Parser {
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::ObjectInitializer(x)), Parser::parse_object_initializer),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Parenthesized(x)), Parser::parse_parenthesized_expression),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Type(x)), Parser::parse_type),
-            (|x| ExpressionAst::Primary(PrimaryExpressionAst::Identifier(x)), Parser::parse_identifier),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Case(x)), Parser::parse_case_expression),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Loop(x)), Parser::parse_loop_expression),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Gen(x)), Parser::parse_gen_expression),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::With(x)), Parser::parse_with_expression),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::InnerScope(x)), Parser::parse_inner_scope),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::SelfIdentifier(x)), Parser::parse_self_identifier),
+            (|x| ExpressionAst::Primary(PrimaryExpressionAst::Identifier(x)), Parser::parse_identifier),
             (|x| ExpressionAst::Primary(PrimaryExpressionAst::Fold(x)), Parser::parse_fold_expression));
         Ok(p1)
     }

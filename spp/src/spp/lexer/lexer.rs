@@ -11,8 +11,14 @@ impl Lexer {
 
     pub fn lex(self) -> TokenStream {
         let mut tokens = vec![];
+        let mut in_string = false;
 
         for c in self.code.chars() {
+            if in_string && c != '"' {
+                tokens.push(TokenType::TkCharacter(c));
+                continue;
+            }
+
             tokens.push(match c {
                 c if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' => TokenType::TkCharacter(c),
                 c if '0' <= c && c <= '9' => TokenType::TkNumber(c),
@@ -39,7 +45,10 @@ impl Lexer {
                 ',' => TokenType::TkComma,
                 '@' => TokenType::TkAt,
                 '_' => TokenType::TkUnderscore,
-                '"' => TokenType::TkSpeechMark,
+                '"' => {
+                    in_string = !in_string;
+                    TokenType::TkSpeechMark
+                }
                 '$' => TokenType::TkDollar,
                 ' ' => TokenType::TkWhitespace,
                 '\n' => TokenType::TkNewLine,

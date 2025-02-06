@@ -1,5 +1,7 @@
 use crate::spp::lexer::token::TokenType;
 use std::collections::HashSet;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug)]
 pub struct SyntaxError {
@@ -19,7 +21,8 @@ impl SyntaxError {
 
     pub fn add_expected_token(&mut self, token: TokenType) {
         if self.expected_tokens.insert(token) {
-            self.message.insert_str(9, &("'".to_string() + token.to_string().as_str() + "', "));
+            // println!("{}", token);
+            // self.message.insert_str(9, &("'".to_string() + token.to_string().as_str() + "', "));
         }
     }
 
@@ -35,5 +38,17 @@ impl SyntaxError {
 
     pub fn get_msg(&self) -> String {
         self.message.clone()
+    }
+}
+
+impl Display for SyntaxError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl Error for SyntaxError {
+    fn description(&self) -> &str {
+        self.message.as_str()
     }
 }

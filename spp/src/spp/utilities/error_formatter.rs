@@ -1,9 +1,10 @@
-use colored::{Color, Colorize, Style};
+use colored::{Colorize};
 use crate::spp::asts::ast::Ast;
 use crate::spp::lexer::token::{TokenStream, TokenType};
 
 const BAR_CHAR: char = '|';
 
+#[derive(Clone)]
 pub struct ErrorFormatter {
     file_path: String,
     tokens: TokenStream,
@@ -13,15 +14,23 @@ impl ErrorFormatter {
     pub fn new(file_path: String, tokens: TokenStream) -> Self {
         Self { file_path, tokens }
     }
+
+    pub fn update_info(&mut self, file_path: String, tokens: TokenStream) {
+        self.file_path = file_path;
+        self.tokens = tokens;
+    }
+}
+
+impl Default for ErrorFormatter {
+    fn default() -> Self {
+        Self {
+            file_path: String::new(),
+            tokens: Vec::new(),
+        }
+    }
 }
 
 impl ErrorFormatter {
-    fn internal_parse_error(&self, ast: &dyn Ast, tag_message: String) -> (String, usize, String, String, String) {
-        let ast_start_pos = ast.get_pos();
-        let ast_size = ast.get_size();
-        self.internal_parse_error_raw_pos(ast_start_pos, ast_size, tag_message)
-    }
-
     fn internal_parse_error_raw_pos(&self, ast_start_pos: usize, ast_size: usize, tag_message: String) -> (String, usize, String, String, String) {
         // Get the tokens at the start and end of the line containing the error. Skip the leading newline.
         let error_line_start_pos = self.tokens[..ast_start_pos].iter().rposition(|x| x == &TokenType::TkNewLine).unwrap() + 1;

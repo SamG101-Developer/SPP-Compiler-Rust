@@ -20,6 +20,10 @@ pub fn should_parse_pass(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 println!("{}", error_string);
                 panic!();
             }
+            else {
+                println!("Parsed successful");
+                println!("{:?}", ast.unwrap());
+            }
         }
     };
 

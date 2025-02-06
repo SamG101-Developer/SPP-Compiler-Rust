@@ -1,4 +1,4 @@
-use clap::{arg, Command};
+use clap::{Arg, ArgAction, Command, Parser, Subcommand};
 use crate::spp::entry::compiler_entry::CompilerEntry;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -11,7 +11,7 @@ spp commands:
     spp build: build the spp project (--mode: [debug, release])
     spp run: run the spp project (--mode: [debug, release])
     spp test: test the spp project (--mode: [debug, release])
-    spp clean: clean the spp project (--mode: [debug, release])
+    spp clean: clean the spp project (--mode: [debug, release, all])
     spp version: display the spp version
  */
 
@@ -21,56 +21,25 @@ pub fn cli() -> Command {
         .about("The S++ programming language")
         .subcommand_required(true)
         .subcommand(
-            Command::new("init")
-                .about("Create a new S++ project")
+            Command::new("init").about("Create a new S++ project")
         )
         .subcommand(
-            Command::new("vcs")
-                .about("Manage version control systems")
+            Command::new("vcs").about("Manage version control systems")
         )
         .subcommand(
-            Command::new("build")
-                .about("Build the S++ project")
-                .arg(arg!("mode")
-                    .short('m')
-                    .long("mode")
-                    .help("The build mode")
-                    .value_parser(["debug", "release"])
-                    .default_value("debug"))
+            Command::new("build").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
         )
         .subcommand(
-            Command::new("run")
-                .about("Run the S++ project")
-                .arg(arg!("mode")
-                    .short('m')
-                    .long("mode")
-                    .help("The run mode")
-                    .value_parser(["debug", "release"])
-                    .default_value("debug"))
+            Command::new("run").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
         )
         .subcommand(
-            Command::new("test")
-                .about("Test the S++ project")
-                .arg(arg!("mode")
-                    .short('m')
-                    .long("mode")
-                    .help("The test mode")
-                    .value_parser(["debug", "release"])
-                    .default_value("debug"))
+            Command::new("test").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
         )
         .subcommand(
-            Command::new("clean")
-                .about("Clean the S++ project")
-                .arg(arg!("mode")
-                    .short('m')
-                    .long("mode")
-                    .help("The clean mode")
-                    .value_parser(["debug", "release"])
-                    .default_value("debug"))
+            Command::new("clean").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release", "all"]).default_value("all"))
         )
         .subcommand(
-            Command::new("version")
-                .about("Display the S++ version")
+            Command::new("version").about("Display the S++ version")
         )
 }
 
@@ -208,8 +177,8 @@ pub fn handle_build(mode: &String) {
     handle_vcs();
 
     // Create the compiler.
-    let compiler = CompilerEntry{};
-    compiler.compile(mode);
+    let mut compiler = CompilerEntry::new();
+    compiler.compile(mode).expect("TODO: panic message");
 }
 
 pub fn handle_run(mode: &String) {
