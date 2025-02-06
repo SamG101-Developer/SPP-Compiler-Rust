@@ -19,4 +19,8 @@ impl Ast for AnnotationAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.name.get_final_pos()
+    }
 }

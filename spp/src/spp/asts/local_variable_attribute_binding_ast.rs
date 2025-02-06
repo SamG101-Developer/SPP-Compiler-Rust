@@ -31,4 +31,8 @@ impl Ast for LocalVariableAttributeBindingAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.value.get_final_pos()
+    }
 }

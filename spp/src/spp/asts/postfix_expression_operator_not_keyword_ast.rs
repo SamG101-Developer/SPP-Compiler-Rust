@@ -22,4 +22,8 @@ impl Ast for PostfixExpressionOperatorNotKeywordAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_not.get_final_pos()
+    }
 }

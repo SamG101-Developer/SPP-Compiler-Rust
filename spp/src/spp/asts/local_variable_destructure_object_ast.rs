@@ -34,4 +34,8 @@ impl Ast for LocalVariableDestructureObjectAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_parenthesis_r.get_final_pos()
+    }
 }

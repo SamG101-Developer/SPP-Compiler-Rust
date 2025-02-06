@@ -12,4 +12,10 @@ impl Ast for UnaryExpressionOperatorAst {
             UnaryExpressionOperatorAst::Async(ast) => ast.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            UnaryExpressionOperatorAst::Async(ast) => ast.get_final_pos(),
+        }
+    }
 }

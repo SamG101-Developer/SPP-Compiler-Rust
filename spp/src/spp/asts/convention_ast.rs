@@ -43,4 +43,12 @@ impl Ast for ConventionAst {
             ConventionAst::Ref { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            ConventionAst::Mov { pos } => *pos,
+            ConventionAst::Mut { pos, .. } => *pos,
+            ConventionAst::Ref { pos, .. } => *pos,
+        }
+    }
 }

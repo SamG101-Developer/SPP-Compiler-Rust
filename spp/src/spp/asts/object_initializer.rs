@@ -27,4 +27,8 @@ impl Ast for ObjectInitializerAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.object_args_group.get_final_pos()
+    }
 }

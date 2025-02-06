@@ -17,4 +17,8 @@ impl Ast for PatternVariantExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.expression.get_final_pos()
+    }
 }

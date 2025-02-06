@@ -26,4 +26,12 @@ impl Ast for RetStatementAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(expr) = &self.expr {
+            expr.get_final_pos()
+        } else {
+            self.tok_ret.get_final_pos()
+        }
+    }
 }

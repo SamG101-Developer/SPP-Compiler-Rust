@@ -45,4 +45,8 @@ impl Ast for GlobalConstantAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.value.get_final_pos()
+    }
 }

@@ -48,4 +48,12 @@ impl Ast for GenericIdentifierAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(generic_args_group) = &self.generic_args_group {
+            generic_args_group.get_final_pos()
+        } else {
+            self.pos + self.value.len()
+        }
+    }
 }

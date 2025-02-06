@@ -27,4 +27,12 @@ impl Ast for LocalVariableDestructureSkipNArgumentsAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(binding) = &self.binding {
+            binding.get_final_pos()
+        } else {
+            self.tok_variadic.get_final_pos()
+        }
+    }
 }

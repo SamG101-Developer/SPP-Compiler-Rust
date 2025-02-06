@@ -17,4 +17,8 @@ impl Ast for PostfixExpressionOperatorEarlyReturnAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_qst.get_final_pos()
+    }
 }

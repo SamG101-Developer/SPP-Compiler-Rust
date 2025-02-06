@@ -30,4 +30,8 @@ impl Ast for FunctionImplementationAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_brace_r.get_final_pos()
+    }
 }

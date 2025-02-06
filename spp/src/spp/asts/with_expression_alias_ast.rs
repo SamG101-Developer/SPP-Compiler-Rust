@@ -23,4 +23,8 @@ impl Ast for WithExpressionAliasAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.variable.get_final_pos()
+    }
 }

@@ -79,6 +79,19 @@ impl Ast for PatternVariantAst {
             PatternVariantAst::SingleIdentifier(single_identifier) => single_identifier.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PatternVariantAst::Else(else_) => else_.get_final_pos(),
+            PatternVariantAst::ElseCase(else_case) => else_case.get_final_pos(),
+            PatternVariantAst::Expression(expression) => expression.get_final_pos(),
+            PatternVariantAst::Literal(literal) => literal.get_final_pos(),
+            PatternVariantAst::DestructureArray(destructure_array) => destructure_array.get_final_pos(),
+            PatternVariantAst::DestructureTuple(destructure_tuple) => destructure_tuple.get_final_pos(),
+            PatternVariantAst::DestructureObject(destructure_object) => destructure_object.get_final_pos(),
+            PatternVariantAst::SingleIdentifier(single_identifier) => single_identifier.get_final_pos(),
+        }
+    }
 }
 
 impl Ast for PatternVariantNestedForDestructureArrayAst {
@@ -92,6 +105,19 @@ impl Ast for PatternVariantNestedForDestructureArrayAst {
             PatternVariantNestedForDestructureArrayAst::Expression(expression) => { expression.get_pos() }
             PatternVariantNestedForDestructureArrayAst::Literal(literal) => literal.get_pos(),
             PatternVariantNestedForDestructureArrayAst::SingleIdentifier(single_identifier) => { single_identifier.get_pos() }
+        }
+    }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureArrayAst::DestructureArray(destructure_array) => { destructure_array.get_final_pos() }
+            PatternVariantNestedForDestructureArrayAst::DestructureTuple(destructure_tuple) => { destructure_tuple.get_final_pos() }
+            PatternVariantNestedForDestructureArrayAst::DestructureObject(destructure_object) => { destructure_object.get_final_pos() }
+            PatternVariantNestedForDestructureArrayAst::Skip1Args(skip_1_args) => skip_1_args.get_final_pos(),
+            PatternVariantNestedForDestructureArrayAst::SkipNArgs(skip_n_args) => skip_n_args.get_final_pos(),
+            PatternVariantNestedForDestructureArrayAst::Expression(expression) => { expression.get_final_pos() }
+            PatternVariantNestedForDestructureArrayAst::Literal(literal) => literal.get_final_pos(),
+            PatternVariantNestedForDestructureArrayAst::SingleIdentifier(single_identifier) => { single_identifier.get_final_pos() }
         }
     }
 }
@@ -109,6 +135,19 @@ impl Ast for PatternVariantNestedForDestructureTupleAst {
             PatternVariantNestedForDestructureTupleAst::SingleIdentifier(single_identifier) => { single_identifier.get_pos() }
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureTupleAst::DestructureArray(destructure_array) => { destructure_array.get_final_pos() }
+            PatternVariantNestedForDestructureTupleAst::DestructureTuple(destructure_tuple) => { destructure_tuple.get_final_pos() }
+            PatternVariantNestedForDestructureTupleAst::DestructureObject(destructure_object) => { destructure_object.get_final_pos() }
+            PatternVariantNestedForDestructureTupleAst::Skip1Args(skip_1_args) => skip_1_args.get_final_pos(),
+            PatternVariantNestedForDestructureTupleAst::SkipNArgs(skip_n_args) => skip_n_args.get_final_pos(),
+            PatternVariantNestedForDestructureTupleAst::Expression(expression) => { expression.get_final_pos() }
+            PatternVariantNestedForDestructureTupleAst::Literal(literal) => literal.get_final_pos(),
+            PatternVariantNestedForDestructureTupleAst::SingleIdentifier(single_identifier) => { single_identifier.get_final_pos() }
+        }
+    }
 }
 
 impl Ast for PatternVariantNestedForDestructureObjectAst {
@@ -117,6 +156,14 @@ impl Ast for PatternVariantNestedForDestructureObjectAst {
             PatternVariantNestedForDestructureObjectAst::AttrBind(attr_bind) => attr_bind.get_pos(),
             PatternVariantNestedForDestructureObjectAst::SkipNArgs(skip_n_args) => skip_n_args.get_pos(),
             PatternVariantNestedForDestructureObjectAst::SingleIdentifier(single_identifier) => single_identifier.get_pos(),
+        }
+    }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForDestructureObjectAst::AttrBind(attr_bind) => attr_bind.get_final_pos(),
+            PatternVariantNestedForDestructureObjectAst::SkipNArgs(skip_n_args) => skip_n_args.get_final_pos(),
+            PatternVariantNestedForDestructureObjectAst::SingleIdentifier(single_identifier) => single_identifier.get_final_pos(),
         }
     }
 }
@@ -128,6 +175,15 @@ impl Ast for PatternVariantNestedForAttributeBindingAst {
             PatternVariantNestedForAttributeBindingAst::DestructureTuple(destructure_tuple) => destructure_tuple.get_pos(),
             PatternVariantNestedForAttributeBindingAst::DestructureObject(destructure_object) => destructure_object.get_pos(),
             PatternVariantNestedForAttributeBindingAst::Literal(literal) => literal.get_pos(),
+        }
+    }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PatternVariantNestedForAttributeBindingAst::DestructureArray(destructure_array) => destructure_array.get_final_pos(),
+            PatternVariantNestedForAttributeBindingAst::DestructureTuple(destructure_tuple) => destructure_tuple.get_final_pos(),
+            PatternVariantNestedForAttributeBindingAst::DestructureObject(destructure_object) => destructure_object.get_final_pos(),
+            PatternVariantNestedForAttributeBindingAst::Literal(literal) => literal.get_final_pos(),
         }
     }
 }

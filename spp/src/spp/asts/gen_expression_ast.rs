@@ -34,4 +34,12 @@ impl Ast for GenExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(expression) = &self.expression {
+            expression.get_final_pos()
+        } else {
+            self.tok_gen.get_final_pos()
+        }
+    }
 }

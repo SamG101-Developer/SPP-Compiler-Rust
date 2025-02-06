@@ -47,4 +47,22 @@ impl Ast for PrimaryExpressionAst {
             PrimaryExpressionAst::Is(is) => is.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PrimaryExpressionAst::Literal(literal) => literal.get_final_pos(),
+            PrimaryExpressionAst::Identifier(identifier) => identifier.get_final_pos(),
+            PrimaryExpressionAst::SelfIdentifier(token) => token.get_final_pos(),
+            PrimaryExpressionAst::Parenthesized(parenthesized) => parenthesized.get_final_pos(),
+            PrimaryExpressionAst::Gen(gen) => gen.get_final_pos(),
+            PrimaryExpressionAst::ObjectInitializer(object_initializer) => { object_initializer.get_final_pos() }
+            PrimaryExpressionAst::InnerScope(inner_scope) => inner_scope.get_final_pos(),
+            PrimaryExpressionAst::Case(case) => case.get_final_pos(),
+            PrimaryExpressionAst::Loop(loop_) => loop_.get_final_pos(),
+            PrimaryExpressionAst::With(with) => with.get_final_pos(),
+            PrimaryExpressionAst::Type(type_) => type_.get_final_pos(),
+            PrimaryExpressionAst::Fold(token) => token.get_final_pos(),
+            PrimaryExpressionAst::Is(is) => is.get_final_pos(),
+        }
+    }
 }

@@ -50,4 +50,8 @@ impl Ast for CaseExpressionBranchAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.body.get_final_pos()
+    }
 }

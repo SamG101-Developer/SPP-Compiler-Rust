@@ -41,4 +41,8 @@ impl Ast for UseStatementAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.old_type.get_final_pos()
+    }
 }

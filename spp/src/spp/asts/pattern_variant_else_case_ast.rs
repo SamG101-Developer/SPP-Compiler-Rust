@@ -23,4 +23,8 @@ impl Ast for PatternVariantElseCaseAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.case_expression.get_final_pos()
+    }
 }

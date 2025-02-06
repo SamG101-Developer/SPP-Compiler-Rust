@@ -125,4 +125,13 @@ impl Ast for FunctionParameterAst {
             FunctionParameterAst::Variadic { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            FunctionParameterAst::Self_ { name, .. } => name.get_final_pos(),
+            FunctionParameterAst::Required { type_, .. } => type_.get_final_pos(),
+            FunctionParameterAst::Optional { value, .. } => value.get_final_pos(),
+            FunctionParameterAst::Variadic { type_, .. } => type_.get_final_pos(),
+        }
+    }
 }

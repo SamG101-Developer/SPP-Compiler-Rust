@@ -64,4 +64,13 @@ impl Ast for GenericArgumentAst {
             GenericArgumentAst::TypeUnnamed { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            GenericArgumentAst::CompNamed { value, .. } => value.get_final_pos(),
+            GenericArgumentAst::CompUnnamed { value, .. } => value.get_final_pos(),
+            GenericArgumentAst::TypeNamed { value, .. } => value.get_final_pos(),
+            GenericArgumentAst::TypeUnnamed { type_, .. } => type_.get_final_pos(),
+        }
+    }
 }

@@ -23,4 +23,8 @@ impl Ast for WhereBlockAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.constraints.get_final_pos()
+    }
 }

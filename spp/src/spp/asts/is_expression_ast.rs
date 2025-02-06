@@ -31,4 +31,8 @@ impl Ast for IsExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.right.get_final_pos()
+    }
 }

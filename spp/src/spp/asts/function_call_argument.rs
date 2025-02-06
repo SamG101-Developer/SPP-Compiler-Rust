@@ -60,4 +60,11 @@ impl Ast for FunctionCallArgumentAst {
             FunctionCallArgumentAst::UnnamedArgument { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            FunctionCallArgumentAst::NamedArgument { value, .. } => value.get_final_pos(),
+            FunctionCallArgumentAst::UnnamedArgument { value, .. } => value.get_final_pos(),
+        }
+    }
 }

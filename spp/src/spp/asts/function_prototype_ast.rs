@@ -70,6 +70,10 @@ impl Ast for FunctionPrototypeBaseAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.body.get_final_pos()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +87,13 @@ impl Ast for FunctionPrototypeAst {
         match self {
             FunctionPrototypeAst::Coroutine(ast) => ast.get_pos(),
             FunctionPrototypeAst::Subroutine(ast) => ast.get_pos(),
+        }
+    }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            FunctionPrototypeAst::Coroutine(ast) => ast.get_final_pos(),
+            FunctionPrototypeAst::Subroutine(ast) => ast.get_final_pos(),
         }
     }
 }

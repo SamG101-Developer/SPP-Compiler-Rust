@@ -27,4 +27,15 @@ impl Ast for ModuleMemberAst {
             ModuleMemberAst::GlobalConst(ast) => ast.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            ModuleMemberAst::Class(ast) => ast.get_final_pos(),
+            ModuleMemberAst::Function(ast) => ast.get_final_pos(),
+            ModuleMemberAst::SupExtension(ast) => ast.get_final_pos(),
+            ModuleMemberAst::SupFunctions(ast) => ast.get_final_pos(),
+            ModuleMemberAst::UseStatement(ast) => ast.get_final_pos(),
+            ModuleMemberAst::GlobalConst(ast) => ast.get_final_pos(),
+        }
+    }
 }

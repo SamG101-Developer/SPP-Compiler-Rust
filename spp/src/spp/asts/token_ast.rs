@@ -40,4 +40,8 @@ impl Ast for TokenAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.pos + 1  // ?
+    }
 }

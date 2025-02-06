@@ -8,4 +8,8 @@ impl Ast for SubroutinePrototypeAst {
     fn get_pos(&self) -> usize {
         self.0.get_pos()
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.0.get_final_pos()
+    }
 }

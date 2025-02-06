@@ -23,4 +23,8 @@ impl Ast for PostfixExpressionOperatorMemberAccessAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.field.get_final_pos()
+    }
 }

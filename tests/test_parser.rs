@@ -1,9 +1,10 @@
 extern crate spp;
 extern crate proc_macros;
 
-use spp::spp::lexer::lexer::Lexer;
-use spp::spp::parser::parser::Parser;
-use proc_macros::{should_parse_fail, should_parse_pass};
+use crate::spp::spp::lexer::lexer::Lexer;
+use crate::spp::spp::parser::parser::Parser;
+use crate::spp::spp::utilities::error_formatter::ErrorFormatter;
+use proc_macros::should_parse_pass;
 
 #[test]
 #[should_parse_pass]

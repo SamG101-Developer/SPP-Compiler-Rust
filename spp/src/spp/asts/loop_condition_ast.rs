@@ -44,4 +44,11 @@ impl Ast for LoopConditionAst {
             LoopConditionAst::Iterable { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            LoopConditionAst::Boolean { condition, .. } => condition.get_final_pos(),
+            LoopConditionAst::Iterable { iterable, .. } => iterable.get_final_pos(),
+        }
+    }
 }

@@ -20,4 +20,8 @@ impl Ast for AssignmentStatementAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.rhs.last().unwrap().get_final_pos()
+    }
 }

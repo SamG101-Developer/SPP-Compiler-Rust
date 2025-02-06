@@ -27,4 +27,12 @@ impl Ast for LoopControlFlowStatementAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(final_part) = &self.final_part {
+            final_part.get_final_pos()
+        } else {
+            self.tok_exits.last().unwrap().get_final_pos()
+        }
+    }
 }

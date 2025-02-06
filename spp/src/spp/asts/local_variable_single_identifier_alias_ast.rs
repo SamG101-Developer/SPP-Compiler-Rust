@@ -19,4 +19,8 @@ impl Ast for LocalVariableSingleIdentifierAliasAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.alias.get_final_pos()
+    }
 }

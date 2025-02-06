@@ -24,4 +24,14 @@ impl Ast for PostfixExpressionOperatorAst {
             PostfixExpressionOperatorAst::StepKeyword(ast) => ast.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            PostfixExpressionOperatorAst::EarlyReturn(ast) => ast.get_final_pos(),
+            PostfixExpressionOperatorAst::FunctionCall(ast) => ast.get_final_pos(),
+            PostfixExpressionOperatorAst::MemberAccess(ast) => ast.get_final_pos(),
+            PostfixExpressionOperatorAst::NotKeyword(ast) => ast.get_final_pos(),
+            PostfixExpressionOperatorAst::StepKeyword(ast) => ast.get_final_pos(),
+        }
+    }
 }

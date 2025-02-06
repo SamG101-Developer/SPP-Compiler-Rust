@@ -4,7 +4,7 @@ use crate::spp::asts::token_ast::TokenAst;
 #[derive(Clone, Debug)]
 pub struct UnaryExpressionOperatorAsyncAst {
     pub pos: usize,
-    tok_async: TokenAst,
+    pub tok_async: TokenAst,
 }
 
 impl UnaryExpressionOperatorAsyncAst {
@@ -16,5 +16,9 @@ impl UnaryExpressionOperatorAsyncAst {
 impl Ast for UnaryExpressionOperatorAsyncAst {
     fn get_pos(&self) -> usize {
         self.pos
+    }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_async.get_final_pos()
     }
 }

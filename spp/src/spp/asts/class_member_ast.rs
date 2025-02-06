@@ -12,4 +12,10 @@ impl Ast for ClassMemberAst {
             ClassMemberAst::Attr(attr) => attr.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            ClassMemberAst::Attr(attr) => attr.get_final_pos(),
+        }
+    }
 }

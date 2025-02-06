@@ -20,4 +20,8 @@ impl Ast for PatternVariantDestructureSkip1ArgumentAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.tok_underscore.get_final_pos()
+    }
 }

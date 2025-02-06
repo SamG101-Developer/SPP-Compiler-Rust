@@ -19,4 +19,8 @@ impl Ast for UnaryExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.rhs.get_final_pos()
+    }
 }

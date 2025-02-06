@@ -23,4 +23,8 @@ impl Ast for RelStatementAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.expressions.last().unwrap().get_final_pos()
+    }
 }

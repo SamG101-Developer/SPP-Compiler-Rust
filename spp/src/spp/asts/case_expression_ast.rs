@@ -52,4 +52,8 @@ impl Ast for CaseExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.branches.last().unwrap().get_final_pos()
+    }
 }

@@ -164,4 +164,15 @@ impl Ast for GenericParameterAst {
             GenericParameterAst::TypeVariadic { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            GenericParameterAst::CompRequired { type_, .. } => type_.get_final_pos(),
+            GenericParameterAst::CompOptional { default, .. } => default.get_final_pos(),
+            GenericParameterAst::CompVariadic { type_, .. } => type_.get_final_pos(),
+            GenericParameterAst::TypeRequired { name, .. } => name.get_final_pos(),
+            GenericParameterAst::TypeOptional { default, .. } => default.get_final_pos(),
+            GenericParameterAst::TypeVariadic { name, .. } => name.get_final_pos(),
+        }
+    }
 }

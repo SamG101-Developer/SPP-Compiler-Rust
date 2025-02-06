@@ -34,4 +34,8 @@ impl SyntaxError {
     pub fn get_pos(&self) -> usize {
         self.pos
     }
+
+    pub fn get_msg(&self) -> String {
+        self.message.clone()
+    }
 }

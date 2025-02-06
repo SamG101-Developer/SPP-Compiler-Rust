@@ -22,6 +22,15 @@ impl Ast for ExpressionAst {
             ExpressionAst::Primary(ast) => ast.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            ExpressionAst::Binary(ast) => ast.get_final_pos(),
+            ExpressionAst::Postfix(ast) => ast.get_final_pos(),
+            ExpressionAst::Unary(ast) => ast.get_final_pos(),
+            ExpressionAst::Primary(ast) => ast.get_final_pos(),
+        }
+    }
 }
 
 impl ToBinaryExpression for ExpressionAst {

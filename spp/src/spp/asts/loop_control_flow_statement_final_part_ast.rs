@@ -15,4 +15,11 @@ impl Ast for LoopControlFlowStatementFinalPartAst {
             LoopControlFlowStatementFinalPartAst::Skip(tok) => tok.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            LoopControlFlowStatementFinalPartAst::Expression(expr) => expr.get_final_pos(),
+            LoopControlFlowStatementFinalPartAst::Skip(tok) => tok.get_final_pos(),
+        }
+    }
 }

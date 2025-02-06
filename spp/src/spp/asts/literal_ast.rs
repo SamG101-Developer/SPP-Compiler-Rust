@@ -149,4 +149,16 @@ impl Ast for LiteralAst {
             LiteralAst::Tuple { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            LiteralAst::Boolean { value, .. } => value.get_final_pos(),
+            LiteralAst::Integer { integer_value, .. } => integer_value.get_final_pos(),
+            LiteralAst::Float { float_value, .. } => float_value.get_final_pos(),
+            LiteralAst::String { value, .. } => value.get_final_pos(),
+            LiteralAst::Array0 { tok_bracket_r, .. } => tok_bracket_r.get_final_pos(),
+            LiteralAst::ArrayN { tok_bracket_r, .. } => tok_bracket_r.get_final_pos(),
+            LiteralAst::Tuple { tok_parenthesis_r, .. } => tok_parenthesis_r.get_final_pos(),
+        }
+    }
 }

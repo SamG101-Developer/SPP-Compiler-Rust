@@ -1,4 +1,4 @@
-use clap::{arg, Command, Arg};
+use clap::{arg, Command};
 use crate::spp::entry::compiler_entry::CompilerEntry;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

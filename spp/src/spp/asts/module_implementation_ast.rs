@@ -17,4 +17,8 @@ impl Ast for ModuleImplementationAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.members.last().unwrap().get_final_pos()
+    }
 }

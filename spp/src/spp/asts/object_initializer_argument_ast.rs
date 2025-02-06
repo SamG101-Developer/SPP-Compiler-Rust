@@ -49,4 +49,11 @@ impl Ast for ObjectInitializerArgumentAst {
             ObjectInitializerArgumentAst::Unnamed { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            ObjectInitializerArgumentAst::Named { value, .. } => value.get_final_pos(),
+            ObjectInitializerArgumentAst::Unnamed { name, .. } => name.get_final_pos(),
+        }
+    }
 }

@@ -39,4 +39,8 @@ impl Ast for PostfixExpressionOperatorFunctionCallAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.function_args_group.get_final_pos()
+    }
 }

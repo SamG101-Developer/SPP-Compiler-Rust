@@ -31,4 +31,12 @@ impl Ast for LocalVariableSingleIdentifierAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(alias) = &self.alias {
+            alias.get_final_pos()
+        } else {
+            self.name.get_final_pos()
+        }
+    }
 }

@@ -33,4 +33,17 @@ impl Ast for StatementAst {
             StatementAst::Use(ast) => ast.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            StatementAst::Assignment(ast) => ast.get_final_pos(),
+            StatementAst::Expression(ast) => ast.get_final_pos(),
+            StatementAst::Let(ast) => ast.get_final_pos(),
+            StatementAst::LoopControlFlow(ast) => ast.get_final_pos(),
+            StatementAst::Pin(ast) => ast.get_final_pos(),
+            StatementAst::Rel(ast) => ast.get_final_pos(),
+            StatementAst::Ret(ast) => ast.get_final_pos(),
+            StatementAst::Use(ast) => ast.get_final_pos(),
+        }
+    }
 }

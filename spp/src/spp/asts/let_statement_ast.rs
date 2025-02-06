@@ -63,4 +63,11 @@ impl Ast for LetStatementAst {
             LetStatementAst::Uninitialized { pos, .. } => *pos,
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            LetStatementAst::Initialized { value, .. } => value.get_final_pos(),
+            LetStatementAst::Uninitialized { type_, .. } => type_.get_final_pos(),
+        }
+    }
 }

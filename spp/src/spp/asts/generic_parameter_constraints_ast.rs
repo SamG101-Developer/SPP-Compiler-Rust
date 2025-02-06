@@ -23,4 +23,8 @@ impl Ast for GenericParameterConstraintsAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.constraint.get_final_pos()
+    }
 }

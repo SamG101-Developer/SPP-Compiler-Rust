@@ -19,4 +19,8 @@ impl Ast for PostfixExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.op.get_final_pos()
+    }
 }

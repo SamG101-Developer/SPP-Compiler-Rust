@@ -35,4 +35,8 @@ impl Ast for ClassAttributeAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.type_.get_final_pos()
+    }
 }

@@ -42,4 +42,12 @@ impl Ast for LoopExpressionAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        if let Some(else_block) = &self.else_block {
+            else_block.get_final_pos()
+        } else {
+            self.body.get_final_pos()
+        }
+    }
 }

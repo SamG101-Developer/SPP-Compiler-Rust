@@ -18,4 +18,12 @@ impl Ast for SupMemberAst {
             SupMemberAst::SupExtension(extension) => extension.get_pos(),
         }
     }
+
+    fn get_final_pos(&self) -> usize {
+        match self {
+            SupMemberAst::Method(method) => method.get_final_pos(),
+            SupMemberAst::Typedef(typedef) => typedef.get_final_pos(),
+            SupMemberAst::SupExtension(extension) => extension.get_final_pos(),
+        }
+    }
 }

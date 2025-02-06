@@ -18,6 +18,10 @@ impl Ast for IdentifierAst {
     fn get_pos(&self) -> usize {
         self.pos
     }
+
+    fn get_final_pos(&self) -> usize {
+        self.pos + self.value.len()
+    }
 }
 
 impl From<&TypeAst> for IdentifierAst {
