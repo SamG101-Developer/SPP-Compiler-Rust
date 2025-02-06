@@ -2494,7 +2494,7 @@ impl Parser {
                 return Err(self.error.clone());
             }
 
-            let new_error = format!("Expected £, got '{}'", self.tokens[self.index]);
+            let new_error = format!("Expected got '{}'", self.tokens[self.index]);
             if self.store_error(self.index, new_error) {
                 self.error.add_expected_token(token_type);
             }

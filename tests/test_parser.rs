@@ -563,7 +563,7 @@ fn test_loop_expression_iterable_condition() {
 #[should_parse_pass]
 fn test_loop_expression_else_block() {
     "
-    fun my_function() {
+    fun my_function() -> Void {
         loop i in some_vector {
         }
         else {

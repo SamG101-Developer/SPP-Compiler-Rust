@@ -19,9 +19,7 @@ impl SyntaxError {
 
     pub fn add_expected_token(&mut self, token: TokenType) {
         if self.expected_tokens.insert(token) {
-            if let Some(pos) = self.message.find("£") {
-                self.message.insert_str(pos, &("'".to_string() + token.to_string().as_str() + "', "));
-            }
+            self.message.insert_str(9, &("'".to_string() + token.to_string().as_str() + "', "));
         }
     }
 
