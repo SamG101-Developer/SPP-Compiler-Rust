@@ -74,7 +74,7 @@ pub fn cli() -> Command {
         )
 }
 
-fn handle_init() {
+pub fn handle_init() {
     // Check if the current directory is empty or not.
     let cwd = std::env::current_dir().unwrap();
     if let Ok(entries) = std::fs::read_dir(&cwd) {
@@ -119,7 +119,7 @@ fn handle_init() {
 }
 
 
-fn handle_vcs() {
+pub fn handle_vcs() {
     // Check if the spp.toml file exists.
     let cwd = std::env::current_dir().unwrap();
     let toml_file = cwd.join("spp.toml");
@@ -196,7 +196,7 @@ fn handle_vcs() {
     std::env::set_current_dir(&cwd).expect("Failed to move back to the project directory.");
 }
 
-fn handle_build(mode: String) {
+pub fn handle_build(mode: &String) {
     // Check if the bin directory exists.
     let cwd = std::env::current_dir().unwrap();
     let bin_dir = cwd.join("bin");
@@ -208,7 +208,7 @@ fn handle_build(mode: String) {
     // If the bin/<mode> directory exists, clear it. Otherwise, create it.
     let mode_dir = bin_dir.join(mode.clone());
     if mode_dir.exists() {
-        handle_clean(mode.clone());
+        handle_clean(mode);
     } else {
         std::fs::create_dir(&mode_dir).expect("Failed to create the mode directory.");
     }
@@ -221,14 +221,18 @@ fn handle_build(mode: String) {
     compiler.compile(mode);
 }
 
-fn handle_run(mode: String) {
+pub fn handle_run(mode: &String) {
     // Build the project.
-    handle_build(mode.clone());
+    handle_build(mode);
 
     // Todo: Run the project.
 }
 
-fn handle_clean(mode: String) {
+pub fn handle_test(mode: &String) {
+    // Todo: Test the project
+}
+
+pub fn handle_clean(mode: &String) {
     // Check if the bin directory exists.
     let cwd = std::env::current_dir().unwrap();
     let bin_dir = cwd.join("bin");
@@ -246,6 +250,6 @@ fn handle_clean(mode: String) {
     }
 }
 
-fn handle_version() {
+pub fn handle_version() {
     println!("S++ version {}", VERSION);
 }

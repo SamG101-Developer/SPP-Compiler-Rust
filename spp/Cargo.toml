@@ -1,8 +1,11 @@
 [package]
-name = "core_lib"
+name = "spp"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 clap = "*"
 toml = "*"
+
+#[[bin]]
+#name = "spp"
