@@ -99,23 +99,14 @@ pub fn handle_init() {
     // Create src/main.spp and spp.toml files.
     std::fs::write(
         &main_file,
-        "
-        fun main(args: std::Vec[std::Str]) -> std::Void {
-            ret
-        }
-        ").expect("Failed to create src/main.spp file.");
+        "fun main(args: std::Vec[std::Str]) -> std::Void {\n    ret\n}"
+    ).expect("Failed to create src/main.spp file.");
 
     let project_name = cwd.file_name().unwrap().to_str().unwrap();
     std::fs::write(
-        &toml_file, format!(
-        "
-        [project]
-        name = \"{project_name}\"
-        version = \"0.1.0\"\
-
-        [vcs]
-        std = {{ git = \"https://github.com/SamG101-Developer/SPP-STL\", branch = \"master\" }}
-        ")).expect("Failed to create spp.toml file.");
+        &toml_file,
+        format!("[project]\nname = \"{project_name}\"\nversion = \"0.1.0\"\n\n[vcs]\nstd = {{ git = \"https://github.com/SamG101-Developer/SPP-STL\", branch = \"master\" }}")
+    ).expect("Failed to create spp.toml file.");
 }
 
 
