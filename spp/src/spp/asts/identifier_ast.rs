@@ -26,7 +26,10 @@ impl Ast for IdentifierAst {
 
 impl From<&TypeAst> for IdentifierAst {
     fn from(type_: &TypeAst) -> Self {
-        IdentifierAst::from(type_.types.last().unwrap())
+        match type_ {
+            TypeAst::Single(type_) => IdentifierAst::new(type_.pos, type_.name.clone().value),
+            _ => panic!("TypeAst::Single expected"),
+        }
     }
 }
 

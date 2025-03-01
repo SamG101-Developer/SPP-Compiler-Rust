@@ -1,15 +1,15 @@
 use crate::spp::asts::ast::Ast;
-use crate::spp::lexer::token::TokenType;
+use crate::spp::lexer::token::TokenAstTokenType;
 
 #[derive(Clone, Debug)]
 pub struct TokenAst {
     pub pos: usize,
-    pub token_type: TokenType,
+    pub token_type: TokenAstTokenType,
     pub metadata: String,
 }
 
 impl TokenAst {
-    pub fn new(pos: usize, token_type: TokenType, metadata: String) -> Self {
+    pub fn new(pos: usize, token_type: TokenAstTokenType, metadata: String) -> Self {
         Self {
             pos,
             token_type,
@@ -20,7 +20,7 @@ impl TokenAst {
     pub fn new_from_pos(pos: usize) -> Self {
         Self {
             pos,
-            token_type: TokenType::NoToken,
+            token_type: TokenAstTokenType::NoToken,
             metadata: String::new(),
         }
     }
@@ -30,7 +30,7 @@ impl Default for TokenAst {
     fn default() -> Self {
         Self {
             pos: 0,
-            token_type: TokenType::NoToken,
+            token_type: TokenAstTokenType::NoToken,
             metadata: String::new(),
         }
     }

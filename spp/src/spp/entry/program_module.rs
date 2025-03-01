@@ -1,13 +1,15 @@
 use crate::spp::asts::module_prototype_ast::ModulePrototypeAst;
 use crate::spp::lexer::token::TokenStream;
 use crate::spp::utilities::error_formatter::ErrorFormatter;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct ProgramModule {
     pub path: String,
     pub code: String,
     pub tokens: TokenStream,
-    pub module_ast: Option<ModulePrototypeAst>,
+    pub module_ast: Option<Rc<RefCell<ModulePrototypeAst>>>,
     pub error_formatter: ErrorFormatter,
 }
 

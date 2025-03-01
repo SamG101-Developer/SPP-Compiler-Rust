@@ -1063,7 +1063,7 @@ fn parse_object_initializer_arguments() {
 fn parse_type_optional() {
     "
     fun my_function() -> Void {
-        let a: ?I32
+        let a: I32?
     }
     "
 }
@@ -1083,7 +1083,17 @@ fn parse_type_tuple() {
 fn parse_type_union() {
     "
     fun my_function() -> Void {
-        let a: I32 | Str
+        let a: I32 or Str
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_type_intersection() {
+    "
+    fun my_function() -> Void {
+        let a: I32 and Str
     }
     "
 }
@@ -1113,7 +1123,17 @@ fn parse_type_with_namespace() {
 fn parse_nested_type() {
     "
     fun my_function() -> Void {
-        let a: std::inner::Str::ValueType
+        let a: std::inner::Str::ValueType::Other
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_indexed_type() {
+    "
+    fun my_function() -> Void {
+        let a: SomeTupleType::0::1::2
     }
     "
 }

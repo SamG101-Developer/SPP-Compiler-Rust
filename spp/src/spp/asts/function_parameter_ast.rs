@@ -116,6 +116,17 @@ impl FunctionParameterAst {
     }
 }
 
+impl FunctionParameterAst {
+    pub fn get_convention(&self) -> &ConventionAst {
+        match self {
+            FunctionParameterAst::Self_ { convention, .. } => convention,
+            FunctionParameterAst::Required { convention, .. } => convention,
+            FunctionParameterAst::Optional { convention, .. } => convention,
+            FunctionParameterAst::Variadic { convention, .. } => convention,
+        }
+    }
+}
+
 impl Ast for FunctionParameterAst {
     fn get_pos(&self) -> usize {
         match self {

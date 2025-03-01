@@ -1,7 +1,19 @@
 use crate::spp::analyse::scopes::scope_manager::ScopeManager;
 use crate::spp::analyse::utilities::semantic_error::SemanticError;
+use crate::spp::asts::class_prototype_ast::ClassPrototypeAst;
 use crate::spp::asts::expression_ast::ExpressionAst;
 use crate::spp::asts::token_ast::TokenAst;
+use crate::spp::asts::type_ast::TypeAst;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Clone)]
+pub enum PreProcessingContext {
+    Class(ClassPrototypeAst),
+    SupExt(TypeAst),
+    Function(),
+    Module(),
+}
 
 pub trait Ast {
     fn get_pos(&self) -> usize;
@@ -18,7 +30,10 @@ pub trait Ast {
     /// ASTs. This allows for single-method processing of multiple ASTs, such as functions vs types
     /// with function classes superimposed over them. This stage directly affects what symbols are
     /// generated.
-    fn stage_1_preprocess(&mut self, context: &mut dyn Ast) -> Result<(), SemanticError> {
+    fn stage_1_preprocess(
+        &mut self,
+        context: PreProcessingContext,
+    ) -> Result<(), SemanticError> {
         Ok(())
     }
 

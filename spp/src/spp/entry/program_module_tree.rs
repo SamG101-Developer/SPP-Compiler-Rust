@@ -45,11 +45,7 @@ impl ProgramModuleTree {
         self.modules.iter_mut()
     }
 
-    pub fn modules_clone(&self) -> Vec<ProgramModule> {
-        self.modules.clone()
-    }
-
-    pub fn remove_module(&mut self, module: &ProgramModule) {
-        self.modules.retain(|x| x != module);
+    pub fn remove_module(&mut self, module_path: String) {
+        self.modules.retain(|m| m.path != module_path);
     }
 }

@@ -24,17 +24,27 @@ impl GenericIdentifierAst {
     }
 }
 
-impl From<&TypeAst> for GenericIdentifierAst {
-    fn from(type_: &TypeAst) -> Self {
-        GenericIdentifierAst {
-            pos: type_.get_pos(),
-            value: type_.types.last().unwrap().value.clone(),
-            generic_args_group: type_.types.last().unwrap().generic_args_group.clone(),
+// impl From<&TypeAst> for GenericIdentifierAst {
+//     fn from(type_: &TypeAst) -> Self {
+//         GenericIdentifierAst {
+//             pos: type_.get_pos(),
+//             value: type_.types.last().unwrap().value.clone(),
+//             generic_args_group: type_.types.last().unwrap().generic_args_group.clone(),
+//         }
+//     }
+// }
+
+impl From<IdentifierAst> for GenericIdentifierAst {
+    fn from(identifier: IdentifierAst) -> Self {
+        Self {
+            pos: identifier.pos,
+            value: identifier.value.clone(),
+            generic_args_group: None,
         }
     }
 }
 
-impl From<&IdentifierAst> for GenericIdentifierAst {
+impl From <&IdentifierAst> for GenericIdentifierAst {
     fn from(identifier: &IdentifierAst) -> Self {
         Self {
             pos: identifier.pos,
