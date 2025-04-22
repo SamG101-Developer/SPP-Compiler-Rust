@@ -37,7 +37,12 @@ impl SyntaxError {
     }
 
     pub fn get_msg(&self) -> String {
-        self.message.clone()
+        let expected_tokens: String = self
+            .expected_tokens
+            .iter()
+            .map(|token| token.to_string())
+            .collect::<Vec<_>>().join(", ");
+        self.message.clone().replace("£", expected_tokens.as_str())
     }
 }
 

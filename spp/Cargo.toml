@@ -9,4 +9,6 @@ toml = "*"
 colored = "*"
 glob = "*"
 indicatif = "*"
+enum_dispatch = "*"
 convert_case = "*"
+proc_macros = { path = "../proc_macros" }

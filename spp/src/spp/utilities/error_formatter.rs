@@ -57,7 +57,7 @@ impl ErrorFormatter {
         (self.file_path.clone(), error_line_number, error_line_as_string, left_padding, carets)
     }
 
-    pub fn error(&self, ast: &dyn Ast, message: String, tag_message: String) -> String {
+    pub fn error(&self, ast: &impl Ast, message: String, tag_message: String) -> String {
         let ast_start_pos = ast.get_pos();
         let ast_size = ast.get_size();
         self.error_raw_pos(ast_start_pos, ast_size, message, tag_message)
@@ -74,7 +74,7 @@ impl ErrorFormatter {
         line1.input + line2.input.as_str() + line3.input.as_str() + line4.input.as_str() + line5.input.as_str() + line6.input.as_str()
     }
 
-    pub fn error_minimal(&self, ast: &dyn Ast, tag_message: String) -> String {
+    pub fn error_minimal(&self, ast: &impl Ast, tag_message: String) -> String {
         let ast_start_pos = ast.get_pos();
         let ast_size = ast.get_size();
         self.error_minimal_raw_pos(ast_start_pos, ast_size, tag_message)

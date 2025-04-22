@@ -1,5 +1,6 @@
 use crate::spp::analyse::scopes::scope::Scope;
-use crate::spp::asts::ast::Ast;
+use crate::spp::analyse::utilities::semantic_error::SemanticError;
+use crate::spp::asts::ast::{Ast, PreProcessingContext};
 use crate::spp::asts::generic_parameter_group_ast::GenericParameterGroupAst;
 use crate::spp::asts::sup_implementation_ast::SupImplementationAst;
 use crate::spp::asts::token_ast::TokenAst;
@@ -17,6 +18,8 @@ pub struct SupPrototypeExtensionAst {
     where_block: Option<WhereBlockAst>,
     body: SupImplementationAst,
     scope_cls: Option<Scope>,
+    
+    _ctx: Option<PreProcessingContext>,
 }
 
 impl SupPrototypeExtensionAst {
@@ -40,6 +43,7 @@ impl SupPrototypeExtensionAst {
             where_block,
             body,
             scope_cls: None,
+            _ctx: None,
         }
     }
 }
@@ -51,5 +55,12 @@ impl Ast for SupPrototypeExtensionAst {
 
     fn get_final_pos(&self) -> usize {
         self.body.get_final_pos()
+    }
+
+    fn stage_1_preprocess_asts(&mut self, context: PreProcessingContext) -> Result<(), SemanticError> {
+        // if self.name.type_parts()[0].value[0] == "$" { return Ok(()); }
+        // self._ctx = Some(context.clone());
+        // self.body.stage_1_preprocess_asts(context)?;
+        Ok(())
     }
 }

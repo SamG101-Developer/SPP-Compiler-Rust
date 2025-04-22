@@ -1,48 +1,14 @@
-use crate::spp::asts::annotation_ast::AnnotationAst;
+use crate::spp::analyse::scopes::scope_manager::ScopeManager;
+use crate::spp::analyse::utilities::semantic_error::SemanticError;
 use crate::spp::asts::ast::Ast;
-use crate::spp::asts::generic_parameter_group_ast::GenericParameterGroupAst;
-use crate::spp::asts::token_ast::TokenAst;
-use crate::spp::asts::type_ast::TypeAst;
+use crate::spp::asts::ast::PreProcessingContext;
+use crate::spp::asts::use_statement_alias_ast::UseStatementAliasAst;
+use crate::spp::asts::use_statement_redux_ast::UseStatementReduxAst;
+use enum_dispatch::enum_dispatch;
 
 #[derive(Clone, Debug)]
-pub struct UseStatementAst {
-    pub pos: usize,
-    pub annotations: Vec<AnnotationAst>,
-    pub tok_use: TokenAst,
-    pub new_type: TypeAst,
-    pub generic_param_group: Option<GenericParameterGroupAst>,
-    pub tok_assign: TokenAst,
-    pub old_type: TypeAst,
-}
-
-impl UseStatementAst {
-    pub fn new(
-        pos: usize,
-        annotations: Vec<AnnotationAst>,
-        tok_use: TokenAst,
-        new_type: TypeAst,
-        generic_param_group: Option<GenericParameterGroupAst>,
-        tok_assign: TokenAst,
-        old_type: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            annotations,
-            tok_use,
-            new_type,
-            generic_param_group,
-            tok_assign,
-            old_type,
-        }
-    }
-}
-
-impl Ast for UseStatementAst {
-    fn get_pos(&self) -> usize {
-        self.pos
-    }
-
-    fn get_final_pos(&self) -> usize {
-        self.old_type.get_final_pos()
-    }
+#[enum_dispatch(Ast)]
+pub enum UseStatementAst {
+    Alias(UseStatementAliasAst),
+    Redux(UseStatementReduxAst),
 }

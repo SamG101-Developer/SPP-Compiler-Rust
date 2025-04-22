@@ -1,11 +1,9 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use indicatif::MultiProgress;
 use crate::spp::asts::ast::Ast;
 use crate::spp::entry::program_module_tree::ProgramModuleTree;
 use crate::spp::lexer::lexer::Lexer;
 use crate::spp::parser::parser::Parser;
 use crate::spp::utilities::progress_bar::new_pb;
+use indicatif::MultiProgress;
 
 pub struct CompilerEntry {
     src_path: String,
@@ -30,18 +28,10 @@ impl CompilerEntry {
         let mut mpb = MultiProgress::new();
         let pb_1 = new_pb(&mut mpb, "Lexing".to_string(), module_count);
         let pb_2 = new_pb(&mut mpb, "Parsing".to_string(), module_count);
-        let pb_3 = new_pb(&mut mpb, "Pre-processing".to_string(), module_count);
-        let pb_4 = new_pb(&mut mpb, "Generating top-level scopes".to_string(), module_count);
-        let pb_5 = new_pb(&mut mpb, "Generating top-level aliases".to_string(), module_count);
-        let pb_6 = new_pb(&mut mpb, "Loading super scopes".to_string(), module_count);
-        let pb_7 = new_pb(&mut mpb, "Preprocessing super scopes".to_string(), module_count);
-        let pb_8 = new_pb(&mut mpb, "Regenerating generic aliases".to_string(), module_count);
-        let pb_9 = new_pb(&mut mpb, "Regenerating generic types".to_string(), module_count);
-        let pb_10 = new_pb(&mut mpb, "Analysing semantics".to_string(), module_count);
-        mpb.println("Compiling...").unwrap();
+        mpb.println("\nCompiling...\n").unwrap();
 
         // Run the lexing steps for each module.
-        for mut module in self.module_tree.modules() {
+        for module in self.module_tree.modules() {
             let full_path = self.src_path.clone() + &module.path;
             module.code = std::fs::read_to_string(&full_path).expect("Failed to read the module file.");
             module.tokens = Lexer::new(module.code.clone()).lex();
@@ -55,7 +45,7 @@ impl CompilerEntry {
         for module in self.module_tree.modules() {
             let module_ast = Parser::new(module.tokens.clone()).parse();
             if let Ok(module_ast) = module_ast {
-                // module.module_ast = Some(module_ast);
+                module.module_ast = Some(module_ast);
                 pb_2.set_message(module.path.clone());
                 pb_2.inc(1);
             }
@@ -66,23 +56,6 @@ impl CompilerEntry {
             }
         }
         pb_2.finish_with_message("Parsing complete.");
-
-        // Remove the "main.spp" files from the vcs imported libraries.
-        // for module_path in self.module_tree.modules().cloned().map(|m| m.path.clone()) {
-        //     let ns = module_path.split("/").skip_while(|x| x != &"src");
-        //     if module_path.starts_with("/vcs") && ns.count() == 0 {
-        //         self.module_tree.remove_module(module_path);
-        //     }
-        // }
-        //
-        // // Run the pre-processing steps for each module.
-        // for mut module in self.module_tree.modules() {
-        //     if let Some(module_ast) = module.module_ast.clone() {
-        //         // module_ast.borrow().stage_1_preprocess(module_ast.clone())?;
-        //         pb_3.set_message(module.path.clone());
-        //         pb_3.inc(1);
-        //     }
-        // }
 
         Ok(())
     }

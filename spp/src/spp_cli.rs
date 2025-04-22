@@ -1,46 +1,63 @@
-use clap::{Arg, ArgAction, Command, Parser, Subcommand};
 use crate::spp::entry::compiler_entry::CompilerEntry;
+use clap::{Arg, ArgAction, Command, Parser, Subcommand};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-
-/*
-spp commands:
-    spp init: create a new spp project
-    spp vcs: manage version control systems
-    spp build: build the spp project (--mode: [debug, release])
-    spp run: run the spp project (--mode: [debug, release])
-    spp test: test the spp project (--mode: [debug, release])
-    spp clean: clean the spp project (--mode: [debug, release, all])
-    spp version: display the spp version
- */
-
 
 pub fn cli() -> Command {
     Command::new("spp")
         .about("The S++ programming language")
         .subcommand_required(true)
+        .subcommand(Command::new("init").about("Create a new S++ project"))
+        .subcommand(Command::new("vcs").about("Manage version control systems"))
         .subcommand(
-            Command::new("init").about("Create a new S++ project")
+            Command::new("build").about("Build the S++ project").arg(
+                Arg::new("mode")
+                    .short('m')
+                    .long("mode")
+                    .value_name("MODE")
+                    .action(ArgAction::Set)
+                    .help("The build mode")
+                    .value_parser(["debug", "release"])
+                    .default_value("debug"),
+            ),
         )
         .subcommand(
-            Command::new("vcs").about("Manage version control systems")
+            Command::new("run").about("Build the S++ project").arg(
+                Arg::new("mode")
+                    .short('m')
+                    .long("mode")
+                    .value_name("MODE")
+                    .action(ArgAction::Set)
+                    .help("The build mode")
+                    .value_parser(["debug", "release"])
+                    .default_value("debug"),
+            ),
         )
         .subcommand(
-            Command::new("build").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
+            Command::new("test").about("Build the S++ project").arg(
+                Arg::new("mode")
+                    .short('m')
+                    .long("mode")
+                    .value_name("MODE")
+                    .action(ArgAction::Set)
+                    .help("The build mode")
+                    .value_parser(["debug", "release"])
+                    .default_value("debug"),
+            ),
         )
         .subcommand(
-            Command::new("run").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
+            Command::new("clean").about("Build the S++ project").arg(
+                Arg::new("mode")
+                    .short('m')
+                    .long("mode")
+                    .value_name("MODE")
+                    .action(ArgAction::Set)
+                    .help("The build mode")
+                    .value_parser(["debug", "release", "all"])
+                    .default_value("all"),
+            ),
         )
-        .subcommand(
-            Command::new("test").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release"]).default_value("debug"))
-        )
-        .subcommand(
-            Command::new("clean").about("Build the S++ project").arg(Arg::new("mode").short('m').long("mode").value_name("MODE").action(ArgAction::Set).help("The build mode").value_parser(["debug", "release", "all"]).default_value("all"))
-        )
-        .subcommand(
-            Command::new("version").about("Display the S++ version")
-        )
+        .subcommand(Command::new("version").about("Display the S++ version"))
 }
 
 pub fn handle_init() {
@@ -64,20 +81,21 @@ pub fn handle_init() {
     std::fs::create_dir(&bin_dir).expect("Failed to create bin directory.");
     std::fs::create_dir(&src_dir).expect("Failed to create src directory.");
     std::fs::create_dir(&src_folder).expect("Failed to create src folder.");
+    let project_name = cwd.file_name().unwrap().to_str().unwrap();
 
-    // Create src/main.spp and spp.toml files.
+    // Create the "src/main.spp" entry file.
     std::fs::write(
         &main_file,
-        "fun main(args: std::Vec[std::Str]) -> std::Void {\n    ret\n}"
-    ).expect("Failed to create src/main.spp file.");
+        "fun main(args: std::vector::Vec[std::string::Str]) -> std::void::Void {\n    ret\n}",
+    )
+    .expect("Failed to create 'src/main.spp' entry file.");
 
-    let project_name = cwd.file_name().unwrap().to_str().unwrap();
+    // Create the "spp.toml" config file.
     std::fs::write(
         &toml_file,
         format!("[project]\nname = \"{project_name}\"\nversion = \"0.1.0\"\n\n[vcs]\nstd = {{ git = \"https://github.com/SamG101-Developer/SPP-STL\", branch = \"master\" }}")
-    ).expect("Failed to create spp.toml file.");
+    ).expect("Failed to create 'spp.toml' config file.");
 }
-
 
 pub fn handle_vcs() {
     // Check if the spp.toml file exists.
@@ -110,46 +128,35 @@ pub fn handle_vcs() {
         let branch = info.get("branch").expect("The branch section does not exist.");
         let git_url = git.as_str().expect("The git section is not a string.");
         let branch_name = branch.as_str().expect("The branch section is not a string.");
+        std::env::set_current_dir(&key).expect("Failed to move into the repository directory.");
 
-        // If the repository has been cloned, pull the latest changes.
         if let Ok(entries) = std::fs::read_dir(&key) {
             if entries.count() > 0 {
-                // Move into the repository folder.
-                std::env::set_current_dir(&key).expect("Failed to move into the repository directory.");
-
-                // Pull the latest changes.
-                let status = std::process::Command::new("git")
+                std::process::Command::new("git")
                     .arg("pull")
-                    .status().expect(format!("Failed to pull the latest changes for the repository '{key}'.").as_str());
+                    .status()
+                    .expect(format!("Failed to pull the latest changes for the repository '{key}'.").as_str());
 
-                // Check if the latest changes were successfully pulled.
-                if status.success() {
-                    println!("Successfully pulled the latest changes for the repository {key}.");
-                } else {
-                    eprintln!("Failed to pull the latest changes for the repository {key}.");
-                }
-
-                // Exit the repository folder.
-                std::env::set_current_dir(&vcs_dir).expect("Failed to move back to the vcs directory.");
-                continue;
+                std::process::Command::new("git")
+                    .arg("checkout").arg(branch_name)
+                    .status()
+                    .expect(format!("Failed to checkout the branch '{branch_name}' for the repository '{key}'.").as_str());
             }
         }
 
-        // Otherwise, clone the standard library repository.
-        let status = std::process::Command::new("git")
-            .arg("clone")
-            .arg(git_url)
-            .arg("--branch")
-            .arg(branch_name)
-            .arg("std")
-            .status().expect(format!("Failed to clone the repository '{key}'.").as_str());
+        else {
+            std::process::Command::new("git")
+                .arg("clone").arg(git_url)
+                .status()
+                .expect(format!("Failed to clone the repository '{key}'.").as_str());
 
-        // Check if the repository was successfully cloned.
-        if status.success() {
-            println!("Successfully cloned the repository {key}.");
-        } else {
-            eprintln!("Failed to clone the repository {key}.");
+            std::process::Command::new("git")
+                .arg("checkout").arg(branch_name)
+                .status()
+                .expect(format!("Failed to checkout the branch '{branch_name}' for the repository '{key}'.").as_str());
         }
+
+        std::env::set_current_dir(&vcs_dir).expect("Failed to move back to the vcs directory.");
     }
 
     // Exit the "vcs" folder.
@@ -157,34 +164,34 @@ pub fn handle_vcs() {
 }
 
 pub fn handle_build(mode: &String) {
-    // Check if the bin directory exists.
     let cwd = std::env::current_dir().unwrap();
+
+    // Check if the "bin" directory exists.
     let bin_dir = cwd.join("bin");
     if !bin_dir.exists() {
-        eprintln!("The bin directory does not exist.");
-        return;
+        std::fs::create_dir(&bin_dir).expect("Failed to create the bin directory.");
     }
 
-    // If the bin/<mode> directory exists, clear it. Otherwise, create it.
+    // Check if the "bin/<mode>" directory exists.
     let mode_dir = bin_dir.join(mode.clone());
-    if mode_dir.exists() {
-        handle_clean(mode);
-    } else {
+    if !mode_dir.exists() {
         std::fs::create_dir(&mode_dir).expect("Failed to create the mode directory.");
     }
+
+    // Validate the structure of the project.
+    // validate_project_structure();
 
     // Handle vcs operations.
     handle_vcs();
 
     // Create the compiler.
     let mut compiler = CompilerEntry::new();
-    compiler.compile(mode).expect("TODO: panic message");
+    compiler.compile(mode).unwrap();
 }
 
 pub fn handle_run(mode: &String) {
     // Build the project.
     handle_build(mode);
-
     // Todo: Run the project.
 }
 

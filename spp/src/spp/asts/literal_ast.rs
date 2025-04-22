@@ -1,164 +1,24 @@
+use crate::spp::analyse::scopes::scope_manager::ScopeManager;
+use crate::spp::analyse::utilities::semantic_error::SemanticError;
 use crate::spp::asts::ast::Ast;
-use crate::spp::asts::expression_ast::ExpressionAst;
-use crate::spp::asts::token_ast::TokenAst;
-use crate::spp::asts::type_ast::TypeAst;
+use crate::spp::asts::ast::PreProcessingContext;
+use crate::spp::asts::literal_array_ast::LiteralArrayAst;
+use crate::spp::asts::literal_array_empty_ast::LiteralArrayEmptyAst;
+use crate::spp::asts::literal_boolean_ast::LiteralBooleanAst;
+use crate::spp::asts::literal_float_ast::LiteralFloatAst;
+use crate::spp::asts::literal_integer_ast::LiteralIntegerAst;
+use crate::spp::asts::literal_string_ast::LiteralStringAst;
+use crate::spp::asts::literal_tuple_ast::LiteralTupleAst;
+use enum_dispatch::enum_dispatch;
 
 #[derive(Clone, Debug)]
+#[enum_dispatch(Ast)]
 pub enum LiteralAst {
-    Boolean {
-        pos: usize,
-        value: TokenAst,
-    },
-    Integer {
-        pos: usize,
-        tok_sign: Option<TokenAst>,
-        integer_value: TokenAst,
-        type_: Option<TypeAst>,
-    },
-    Float {
-        pos: usize,
-        tok_sign: Option<TokenAst>,
-        integer_value: TokenAst,
-        tok_dot: TokenAst,
-        float_value: TokenAst,
-        type_: Option<TypeAst>,
-    },
-    String {
-        pos: usize,
-        value: TokenAst,
-    },
-    Array0 {
-        pos: usize,
-        tok_bracket_l: TokenAst,
-        elem_type: TypeAst,
-        tok_comma: TokenAst,
-        size: TokenAst,
-        tok_bracket_r: TokenAst,
-    },
-    ArrayN {
-        pos: usize,
-        tok_bracket_l: TokenAst,
-        elements: Vec<ExpressionAst>,
-        tok_bracket_r: TokenAst,
-    },
-    Tuple {
-        pos: usize,
-        tok_parenthesis_l: TokenAst,
-        elements: Vec<ExpressionAst>,
-        tok_parenthesis_r: TokenAst,
-    },
-}
-
-impl LiteralAst {
-    pub fn new_boolean(pos: usize, value: TokenAst) -> Self {
-        LiteralAst::Boolean { pos, value }
-    }
-
-    pub fn new_integer(
-        pos: usize,
-        tok_sign: Option<TokenAst>,
-        integer_value: TokenAst,
-        type_: Option<TypeAst>,
-    ) -> Self {
-        LiteralAst::Integer {
-            pos,
-            tok_sign,
-            integer_value,
-            type_,
-        }
-    }
-
-    pub fn new_float(
-        pos: usize,
-        tok_sign: Option<TokenAst>,
-        integer_value: TokenAst,
-        tok_dot: TokenAst,
-        float_value: TokenAst,
-        type_: Option<TypeAst>,
-    ) -> Self {
-        LiteralAst::Float {
-            pos,
-            tok_sign,
-            integer_value,
-            tok_dot,
-            float_value,
-            type_,
-        }
-    }
-
-    pub fn new_string(pos: usize, value: TokenAst) -> Self {
-        LiteralAst::String { pos, value }
-    }
-
-    pub fn new_array_0(
-        pos: usize,
-        tok_bracket_l: TokenAst,
-        elem_type: TypeAst,
-        tok_comma: TokenAst,
-        size: TokenAst,
-        tok_bracket_r: TokenAst,
-    ) -> Self {
-        LiteralAst::Array0 {
-            pos,
-            tok_bracket_l,
-            elem_type,
-            tok_comma,
-            size,
-            tok_bracket_r,
-        }
-    }
-
-    pub fn new_array_n(
-        pos: usize,
-        tok_bracket_l: TokenAst,
-        elements: Vec<ExpressionAst>,
-        tok_bracket_r: TokenAst,
-    ) -> Self {
-        LiteralAst::ArrayN {
-            pos,
-            tok_bracket_l,
-            elements,
-            tok_bracket_r,
-        }
-    }
-
-    pub fn new_tuple(
-        pos: usize,
-        tok_parenthesis_l: TokenAst,
-        elements: Vec<ExpressionAst>,
-        tok_parenthesis_r: TokenAst,
-    ) -> Self {
-        LiteralAst::Tuple {
-            pos,
-            tok_parenthesis_l,
-            elements,
-            tok_parenthesis_r,
-        }
-    }
-}
-
-impl Ast for LiteralAst {
-    fn get_pos(&self) -> usize {
-        match self {
-            LiteralAst::Boolean { pos, .. } => *pos,
-            LiteralAst::Integer { pos, .. } => *pos,
-            LiteralAst::Float { pos, .. } => *pos,
-            LiteralAst::String { pos, .. } => *pos,
-            LiteralAst::Array0 { pos, .. } => *pos,
-            LiteralAst::ArrayN { pos, .. } => *pos,
-            LiteralAst::Tuple { pos, .. } => *pos,
-        }
-    }
-
-    fn get_final_pos(&self) -> usize {
-        match self {
-            LiteralAst::Boolean { value, .. } => value.get_final_pos(),
-            LiteralAst::Integer { integer_value, .. } => integer_value.get_final_pos(),
-            LiteralAst::Float { float_value, .. } => float_value.get_final_pos(),
-            LiteralAst::String { value, .. } => value.get_final_pos(),
-            LiteralAst::Array0 { tok_bracket_r, .. } => tok_bracket_r.get_final_pos(),
-            LiteralAst::ArrayN { tok_bracket_r, .. } => tok_bracket_r.get_final_pos(),
-            LiteralAst::Tuple { tok_parenthesis_r, .. } => tok_parenthesis_r.get_final_pos(),
-        }
-    }
+    Boolean(LiteralBooleanAst),
+    Integer(LiteralIntegerAst),
+    Float(LiteralFloatAst),
+    String(LiteralStringAst),
+    Array0(LiteralArrayEmptyAst),
+    ArrayN(LiteralArrayAst),
+    Tuple(LiteralTupleAst),
 }
