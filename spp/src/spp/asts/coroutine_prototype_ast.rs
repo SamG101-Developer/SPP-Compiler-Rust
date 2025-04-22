@@ -1,7 +1,7 @@
 use crate::spp::asts::ast::Ast;
 use crate::spp::asts::function_prototype_ast::FunctionPrototypeBaseAst;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CoroutinePrototypeAst(pub FunctionPrototypeBaseAst);
 
 impl Ast for CoroutinePrototypeAst {

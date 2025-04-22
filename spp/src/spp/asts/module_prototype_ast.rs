@@ -3,8 +3,8 @@ use crate::spp::asts::module_implementation_ast::ModuleImplementationAst;
 
 #[derive(Clone, Debug)]
 pub struct ModulePrototypeAst {
-    pos: usize,
-    body: ModuleImplementationAst,
+    pub pos: usize,
+    pub body: ModuleImplementationAst,
 }
 
 impl ModulePrototypeAst {

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use syn::{parse_macro_input, DeriveInput, ItemFn};
 
 #[proc_macro_attribute]
 pub fn should_parse_pass(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -27,5 +27,15 @@ pub fn should_parse_pass(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(SemanticError)]
+pub fn derive_semantic_error(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+    let expanded = quote! {
+        impl crate::spp::analyse::utilities::semantic_error::SemanticError for #name {}
+    };
     TokenStream::from(expanded)
 }

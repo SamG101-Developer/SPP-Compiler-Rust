@@ -3,6 +3,7 @@ use crate::spp::asts::ast::Ast;
 use crate::spp::asts::identifier_ast::IdentifierAst;
 use crate::spp::asts::token_ast::TokenAst;
 use crate::spp::asts::type_ast::TypeAst;
+use crate::spp::asts::expression_ast::ExpressionAst;
 
 #[derive(Clone, Debug)]
 pub struct ClassAttributeAst {
@@ -11,6 +12,7 @@ pub struct ClassAttributeAst {
     pub name: IdentifierAst,
     pub tok_colon: TokenAst,
     pub type_: TypeAst,
+    pub default: Option<ExpressionAst>,
 }
 
 impl ClassAttributeAst {
@@ -20,6 +22,7 @@ impl ClassAttributeAst {
         name: IdentifierAst,
         tok_colon: TokenAst,
         type_: TypeAst,
+        default: Option<ExpressionAst>,
     ) -> Self {
         Self {
             pos,
@@ -27,6 +30,7 @@ impl ClassAttributeAst {
             name,
             tok_colon,
             type_,
+            default,
         }
     }
 }

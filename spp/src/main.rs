@@ -1,11 +1,12 @@
 #![feature(trait_alias)]
 #![feature(unboxed_closures)]
+#![feature(let_chains)]
 
 mod spp;
 mod spp_cli;
 
 fn main() {
-    std::env::set_var("RUST_BACKTRACE", "1");
+    unsafe { std::env::set_var("RUST_BACKTRACE", "1"); }
     let matches = spp_cli::cli().get_matches();
     match matches.subcommand() {
         Some(("init", _)) => {

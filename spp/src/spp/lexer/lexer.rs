@@ -12,8 +12,13 @@ impl Lexer {
     pub fn lex(self) -> TokenStream {
         let mut tokens = vec![];
         let mut in_string = false;
+        let mut in_single_line_comment = false;
 
         for c in self.code.chars() {
+            if in_single_line_comment && c != '\n' {
+                continue;
+            }
+
             if in_string && c != '"' {
                 tokens.push(TokenType::TkCharacter(c));
                 continue;
@@ -22,6 +27,10 @@ impl Lexer {
             tokens.push(match c {
                 c if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' => TokenType::TkCharacter(c),
                 c if '0' <= c && c <= '9' => TokenType::TkNumber(c),
+                '#' => {
+                    in_single_line_comment = true;
+                    continue
+                }
                 '=' => TokenType::TkEqualsSign,
                 '+' => TokenType::TkPlusSign,
                 '-' => TokenType::TkMinusSign,
@@ -51,7 +60,10 @@ impl Lexer {
                 }
                 '$' => TokenType::TkDollar,
                 ' ' => TokenType::TkWhitespace,
-                '\n' => TokenType::TkNewLine,
+                '\n' => {
+                    in_single_line_comment = false;
+                    TokenType::TkNewLine
+                },
                 '\r' => continue,
                 c => TokenType::TkUnknown(c),
             });

@@ -2,7 +2,7 @@ use crate::spp::asts::ast::Ast;
 use crate::spp::asts::function_call_argument::FunctionCallArgumentAst;
 use crate::spp::asts::token_ast::TokenAst;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FunctionCallArgumentGroupAst {
     pub pos: usize,
     pub tok_paren_l: TokenAst,

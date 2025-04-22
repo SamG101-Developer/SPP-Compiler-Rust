@@ -1,7 +1,7 @@
 [package]
 name = "spp"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clap = "*"
@@ -9,4 +9,6 @@ toml = "*"
 colored = "*"
 glob = "*"
 indicatif = "*"
+delegation = { git = "https://github.com/arcane-rs/delegation", branch = "main" }
 convert_case = "*"
+proc_macros = { path = "../proc_macros" }

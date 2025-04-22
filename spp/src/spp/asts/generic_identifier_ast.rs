@@ -1,9 +1,8 @@
 use crate::spp::asts::ast::Ast;
 use crate::spp::asts::generic_argument_group_ast::GenericArgumentGroupAst;
 use crate::spp::asts::identifier_ast::IdentifierAst;
-use crate::spp::asts::type_ast::TypeAst;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GenericIdentifierAst {
     pub pos: usize,
     pub value: String,
@@ -24,16 +23,6 @@ impl GenericIdentifierAst {
     }
 }
 
-// impl From<&TypeAst> for GenericIdentifierAst {
-//     fn from(type_: &TypeAst) -> Self {
-//         GenericIdentifierAst {
-//             pos: type_.get_pos(),
-//             value: type_.types.last().unwrap().value.clone(),
-//             generic_args_group: type_.types.last().unwrap().generic_args_group.clone(),
-//         }
-//     }
-// }
-
 impl From<IdentifierAst> for GenericIdentifierAst {
     fn from(identifier: IdentifierAst) -> Self {
         Self {
@@ -44,7 +33,7 @@ impl From<IdentifierAst> for GenericIdentifierAst {
     }
 }
 
-impl From <&IdentifierAst> for GenericIdentifierAst {
+impl From<&IdentifierAst> for GenericIdentifierAst {
     fn from(identifier: &IdentifierAst) -> Self {
         Self {
             pos: identifier.pos,

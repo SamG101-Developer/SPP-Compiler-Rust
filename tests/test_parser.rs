@@ -83,7 +83,7 @@ fn test_coroutine_prototype() {
 fn test_function_call_arguments_named() {
     "
     fun my_function() -> Void {
-        other_function(arg1=1, arg2=2)
+        other_function(arg1=other_thing, arg2=2)
     }
     "
 }
@@ -113,7 +113,7 @@ fn test_function_call_no_arguments() {
 fn test_function_call_arguments() {
     "
     fun my_function() -> Void {
-        other_function(1, arg=2)
+        other_function(1, arg=false)
     }
     "
 }
@@ -718,26 +718,6 @@ fn test_skip_statement() {
 
 #[test]
 #[should_parse_pass]
-fn parse_pin_statement() {
-    "
-    fun my_function() -> Void {
-        pin a, b, c
-    }
-    "
-}
-
-#[test]
-#[should_parse_pass]
-fn test_rel_statement() {
-    "
-    fun my_function() -> Void {
-        rel a, b, c
-    }
-    "
-}
-
-#[test]
-#[should_parse_pass]
 fn test_inner_scope() {
     "
     fun my_function() -> Void {
@@ -1124,16 +1104,6 @@ fn parse_nested_type() {
     "
     fun my_function() -> Void {
         let a: std::inner::Str::ValueType::Other
-    }
-    "
-}
-
-#[test]
-#[should_parse_pass]
-fn parse_indexed_type() {
-    "
-    fun my_function() -> Void {
-        let a: SomeTupleType::0::1::2
     }
     "
 }

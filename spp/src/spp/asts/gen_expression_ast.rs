@@ -3,12 +3,12 @@ use crate::spp::asts::convention_ast::ConventionAst;
 use crate::spp::asts::expression_ast::ExpressionAst;
 use crate::spp::asts::token_ast::TokenAst;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GenExpressionAst {
     pub pos: usize,
     pub tok_gen: TokenAst,
     pub tok_with: Option<TokenAst>,
-    pub convention: ConventionAst,
+    pub convention: Option<ConventionAst>,
     pub expression: Option<Box<ExpressionAst>>,
 }
 
@@ -17,7 +17,7 @@ impl GenExpressionAst {
         pos: usize,
         tok_gen: TokenAst,
         tok_with: Option<TokenAst>,
-        convention: ConventionAst,
+        convention: Option<ConventionAst>,
         expression: Option<Box<ExpressionAst>>,
     ) -> Self {
         Self {
