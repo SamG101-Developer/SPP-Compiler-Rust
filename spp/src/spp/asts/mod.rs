@@ -137,3 +137,5 @@ pub mod use_statement_redux_ast;
 pub mod where_block_ast;
 pub mod where_constraints_ast;
 pub mod where_constraints_group_ast;
+pub mod object_initializer_argument_named;
+pub mod object_initializer_argument_unnamed;
