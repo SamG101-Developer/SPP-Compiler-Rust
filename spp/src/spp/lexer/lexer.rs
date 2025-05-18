@@ -8,8 +8,12 @@ impl Lexer {
     pub fn new(code: String) -> Self {
         Lexer { code }
     }
+    
+    pub fn set_code(&mut self, code: String) {
+        self.code = code;
+    }
 
-    pub fn lex(self) -> TokenStream {
+    pub fn lex(&self) -> TokenStream {
         let mut tokens = vec![];
         let mut in_string = false;
         let mut in_single_line_comment = false;

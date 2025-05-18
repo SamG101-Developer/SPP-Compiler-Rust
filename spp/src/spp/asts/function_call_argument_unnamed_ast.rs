@@ -5,31 +5,20 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct FunctionCallArgumentUnnamedAst {
-    pos: usize,
     convention: Option<ConventionAst>,
     tok_unpack: Option<TokenAst>,
     value: ExpressionAst,
 }
 
 impl FunctionCallArgumentUnnamedAst {
-    pub fn new(
-        pos: usize,
-        convention: Option<ConventionAst>,
-        tok_unpack: Option<TokenAst>,
-        value: ExpressionAst,
-    ) -> Self {
-        Self {
-            pos,
-            convention,
-            tok_unpack,
-            value,
-        }
+    pub fn new(convention: Option<ConventionAst>, tok_unpack: Option<TokenAst>, value: ExpressionAst) -> Self {
+        Self { convention, tok_unpack, value }
     }
 }
 
 impl Ast for FunctionCallArgumentUnnamedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.convention.as_ref().map_or(self.tok_unpack.as_ref().map_or(self.value.get_pos(), |x| x.get_pos()), |x| x.get_pos())
     }
 
     fn get_final_pos(&self) -> usize {

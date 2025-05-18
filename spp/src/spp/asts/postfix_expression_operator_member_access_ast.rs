@@ -4,24 +4,19 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct PostfixExpressionOperatorMemberAccessAst {
-    pub pos: usize,
     pub tok_access: TokenAst,
     pub field: IdentifierAst,
 }
 
 impl PostfixExpressionOperatorMemberAccessAst {
-    pub fn new(pos: usize, tok_access: TokenAst, field: IdentifierAst) -> Self {
-        Self {
-            pos,
-            tok_access,
-            field,
-        }
+    pub fn new(tok_access: TokenAst, field: IdentifierAst) -> Self {
+        Self { tok_access, field }
     }
 }
 
 impl Ast for PostfixExpressionOperatorMemberAccessAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_access.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

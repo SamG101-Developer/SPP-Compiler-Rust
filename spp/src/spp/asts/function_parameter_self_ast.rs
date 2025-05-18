@@ -8,7 +8,6 @@ use crate::spp::lexer::token::TokenAstTokenType;
 
 #[derive(Clone, Debug)]
 pub struct FunctionParameterSelfAst {
-    pub pos: usize,
     pub tok_mut: Option<TokenAst>,
     pub convention: Option<ConventionAst>,
     pub name: IdentifierAst,
@@ -20,42 +19,12 @@ pub struct FunctionParameterSelfAst {
 }
 
 impl FunctionParameterSelfAst {
-    pub fn new(
-        pos: usize,
-        tok_mut: Option<TokenAst>,
-        convention: Option<ConventionAst>,
-        name: IdentifierAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_mut,
-            convention,
-            name,
-            tok_colon: TokenAst::new(pos, TokenAstTokenType::TkColon, String::new()),
-            type_: CommonTypes::self_(pos),
-            _is_arbitrary: false,
-            _true_self_type: None,
-        }
+    pub fn new(tok_mut: Option<TokenAst>, convention: Option<ConventionAst>, name: IdentifierAst, ) -> Self {
+        Self { tok_mut, convention, name, tok_colon: TokenAst::new(0, TokenAstTokenType::TkColon, String::new()), type_: CommonTypes::self_(), _is_arbitrary: false, _true_self_type: None, }
     }
     
-    pub fn new_with_type(
-        pos: usize,
-        tok_mut: Option<TokenAst>,
-        convention: Option<ConventionAst>,
-        name: IdentifierAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_mut,
-            convention,
-            name,
-            tok_colon,
-            type_,
-            _is_arbitrary: true,
-            _true_self_type: None,
-        }
+    pub fn new_with_type(tok_mut: Option<TokenAst>, convention: Option<ConventionAst>, name: IdentifierAst, tok_colon: TokenAst, type_: TypeAst) -> Self {
+        Self { tok_mut, convention, name, tok_colon, type_, _is_arbitrary: true, _true_self_type: None, }
     }
 }
 
@@ -67,7 +36,7 @@ impl FunctionParameterSelfAst {
 
 impl Ast for FunctionParameterSelfAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.name.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

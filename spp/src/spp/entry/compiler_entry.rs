@@ -29,12 +29,15 @@ impl CompilerEntry {
         let pb_1 = new_pb(&mut mpb, "Lexing".to_string(), module_count);
         let pb_2 = new_pb(&mut mpb, "Parsing".to_string(), module_count);
         mpb.println("\nCompiling...\n").unwrap();
+        let start_time = std::time::Instant::now();
 
         // Run the lexing steps for each module.
+        let mut lexer = Lexer::new("".to_string());
         for module in self.module_tree.modules() {
             let full_path = self.src_path.clone() + &module.path;
             module.code = std::fs::read_to_string(&full_path).expect("Failed to read the module file.");
-            module.tokens = Lexer::new(module.code.clone()).lex();
+            lexer.set_code(module.code.clone());
+            module.tokens = lexer.lex();
             module.error_formatter.update_info(module.path.clone(), module.tokens.clone());
             pb_1.set_message(module.path.clone());
             pb_1.inc(1);
@@ -42,18 +45,22 @@ impl CompilerEntry {
         pb_1.finish_with_message("Lexing complete.");
 
         // Run the parsing steps for each module.
+        let mut parser = Parser::new(vec![]);
         for module in self.module_tree.modules() {
-            let module_ast = Parser::new(module.tokens.clone()).parse();
+            parser.set_token_stream(module.tokens.clone());
+            let module_ast = parser.parse();
             if let Ok(module_ast) = module_ast {
                 module.module_ast = Some(module_ast);
-                pb_2.set_message(module.path.clone());
-                pb_2.inc(1);
+                // pb_2.set_message(module.path.clone());
+                // pb_2.inc(1);
             }
             else {
                 let error = module_ast.unwrap_err();
                 println!("{}", module.error_formatter.error_raw_pos(error.get_pos(), 1, error.get_msg(), "Syntax Error".to_string()));
                 return Err(Box::new(error));
             }
+            pb_2.set_message(module.path.clone());
+            pb_2.inc(1);
         }
         pb_2.finish_with_message("Parsing complete.");
 

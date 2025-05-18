@@ -4,34 +4,21 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericParameterCompRequiredAst {
-    pos: usize,
-    tok_comp: TokenAst,
+    tok_cmp: TokenAst,
     name: TypeAst,
     tok_colon: TokenAst,
     type_: TypeAst,
 }
 
 impl GenericParameterCompRequiredAst {
-    pub fn new(
-        pos: usize,
-        tok_comp: TokenAst,
-        name: TypeAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_comp,
-            name,
-            tok_colon,
-            type_,
-        }
+    pub fn new(tok_cmp: TokenAst, name: TypeAst, tok_colon: TokenAst, type_: TypeAst) -> Self {
+        Self { tok_cmp, name, tok_colon, type_ }
     }
 }
 
 impl Ast for GenericParameterCompRequiredAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_cmp.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

@@ -8,25 +8,14 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug, Default)]
 pub struct FunctionParameterGroupAst {
-    pub pos: usize,
     pub tok_paren_l: TokenAst,
     pub parameters: Vec<FunctionParameterAst>,
     pub tok_paren_r: TokenAst,
 }
 
 impl FunctionParameterGroupAst {
-    pub fn new(
-        pos: usize,
-        tok_paren_l: TokenAst,
-        parameters: Vec<FunctionParameterAst>,
-        tok_paren_r: TokenAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_paren_l,
-            parameters,
-            tok_paren_r,
-        }
+    pub fn new(tok_paren_l: TokenAst, parameters: Vec<FunctionParameterAst>, tok_paren_r: TokenAst) -> Self {
+        Self { tok_paren_l, parameters, tok_paren_r }
     }
 }
 
@@ -72,7 +61,7 @@ impl FunctionParameterGroupAst {
 
 impl Ast for FunctionParameterGroupAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_paren_l.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

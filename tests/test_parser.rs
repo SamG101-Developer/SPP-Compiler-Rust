@@ -8,7 +8,7 @@ use proc_macros::should_parse_pass;
 
 #[test]
 #[should_parse_pass]
-fn test_class_prototype() {
+fn parse_class_prototype() {
     "
     cls MyClass { }
     "
@@ -16,7 +16,7 @@ fn test_class_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_class_attribute() {
+fn parse_class_attribute() {
     "
     cls MyClass {
         my_attr_1: I32
@@ -27,7 +27,17 @@ fn test_class_attribute() {
 
 #[test]
 #[should_parse_pass]
-fn test_sup_extension_prototype() {
+fn parse_class_attribute_default_value() {
+    "
+    cls MyClass {
+        my_attr_2: Arr[Str, 1] = [\"Hello\"]
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_sup_extension_prototype() {
     "
     sup MyClass ext Copy { }
     "
@@ -35,7 +45,7 @@ fn test_sup_extension_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_sup_functions_prototype() {
+fn parse_sup_functions_prototype() {
     "
     sup MyClass { }
     "
@@ -43,7 +53,7 @@ fn test_sup_functions_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_sup_method_prototype() {
+fn parse_sup_method_prototype() {
     "
     sup MyClass {
         fun my_method_1() -> Void { }
@@ -54,7 +64,7 @@ fn test_sup_method_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_sup_use_statement() {
+fn parse_sup_use_statement() {
     "
     sup MyClass {
         use NewType = OldType
@@ -64,7 +74,7 @@ fn test_sup_use_statement() {
 
 #[test]
 #[should_parse_pass]
-fn test_subroutine_prototype() {
+fn parse_subroutine_prototype() {
     "
     fun my_function() -> Void { }
     "
@@ -72,7 +82,7 @@ fn test_subroutine_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_coroutine_prototype() {
+fn parse_coroutine_prototype() {
     "
     cor my_coroutine() -> Void { }
     "
@@ -80,7 +90,7 @@ fn test_coroutine_prototype() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_call_arguments_named() {
+fn parse_function_call_arguments_named() {
     "
     fun my_function() -> Void {
         other_function(arg1=other_thing, arg2=2)
@@ -90,7 +100,7 @@ fn test_function_call_arguments_named() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_call_arguments_unnamed() {
+fn parse_function_call_arguments_unnamed() {
     "
     fun my_function() -> Void {
         other_function(1, 2)
@@ -100,7 +110,7 @@ fn test_function_call_arguments_unnamed() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_call_no_arguments() {
+fn parse_function_call_no_arguments() {
     "
     fun my_function() -> Void {
         other_function()
@@ -110,7 +120,7 @@ fn test_function_call_no_arguments() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_call_arguments() {
+fn parse_function_call_arguments() {
     "
     fun my_function() -> Void {
         other_function(1, arg=false)
@@ -120,7 +130,7 @@ fn test_function_call_arguments() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_self_parameter_mov() {
+fn parse_function_self_parameter_mov() {
     "
     sup MyClass {
         fun my_method(self) -> Void { }
@@ -130,7 +140,7 @@ fn test_function_self_parameter_mov() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_self_parameter_mut_mov() {
+fn parse_function_self_parameter_mut_mov() {
     "
     sup MyClass {
         fun my_method(mut self) -> Void { }
@@ -140,7 +150,7 @@ fn test_function_self_parameter_mut_mov() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_self_parameter_mut() {
+fn parse_function_self_parameter_mut() {
     "
     sup MyClass {
         fun my_method(&mut self) -> Void { }
@@ -150,7 +160,7 @@ fn test_function_self_parameter_mut() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_self_parameter_ref() {
+fn parse_function_self_parameter_ref() {
     "
     sup MyClass {
         fun my_method(&self) -> Void { }
@@ -160,7 +170,7 @@ fn test_function_self_parameter_ref() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_required_parameters() {
+fn parse_function_required_parameters() {
     "
     fun my_function(arg1: I32, arg2: I32) -> Void { }
     "
@@ -168,7 +178,7 @@ fn test_function_required_parameters() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_optional_parameters() {
+fn parse_function_optional_parameters() {
     "
     fun my_function(arg2: I32 = 0) -> Void { }
     "
@@ -176,7 +186,7 @@ fn test_function_optional_parameters() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_variadic_parameters() {
+fn parse_function_variadic_parameters() {
     "
     fun my_function(arg1: I32, ..arg2: I32) -> Void { }
     "
@@ -184,7 +194,7 @@ fn test_function_variadic_parameters() {
 
 #[test]
 #[should_parse_pass]
-fn test_function_parameters() {
+fn parse_function_parameters() {
     "
     fun my_function(arg1: I32, arg2: I32 = 0, ..arg3: I32) -> Void { }
     "
@@ -192,7 +202,7 @@ fn test_function_parameters() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_argument_type_named() {
+fn parse_generic_argument_type_named() {
     "
     fun my_function() -> Void {
         other_function[T=I32, U=Str]()
@@ -202,7 +212,7 @@ fn test_generic_argument_type_named() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_argument_type_unnamed() {
+fn parse_generic_argument_type_unnamed() {
     "
     fun my_function() -> Void {
         other_function[I32, Str]()
@@ -212,7 +222,7 @@ fn test_generic_argument_type_unnamed() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_argument_comp_named() {
+fn parse_generic_argument_comp_named() {
     "
     fun my_function() -> Void {
         other_function[n=1, m=2]()
@@ -222,7 +232,7 @@ fn test_generic_argument_comp_named() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_argument_comp_unnamed() {
+fn parse_generic_argument_comp_unnamed() {
     "
     fun my_function() -> Void {
         other_function[1, 2]()
@@ -232,7 +242,7 @@ fn test_generic_argument_comp_unnamed() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_arguments() {
+fn parse_generic_arguments() {
     "
     fun my_function() -> Void {
         other_function[I32, Str, T=Bool, n=1]()
@@ -242,7 +252,7 @@ fn test_generic_arguments() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_type_required() {
+fn parse_generic_parameter_type_required() {
     "
     fun my_function[T, U]() -> Void { }
     "
@@ -250,7 +260,7 @@ fn test_generic_parameter_type_required() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_type_optional() {
+fn parse_generic_parameter_type_optional() {
     "
     fun my_function[T=I32, U=Str]() -> Void { }
     "
@@ -258,7 +268,7 @@ fn test_generic_parameter_type_optional() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_type_variadic() {
+fn parse_generic_parameter_type_variadic() {
     "
     fun my_function[T, ..U]() -> Void { }
     "
@@ -266,7 +276,7 @@ fn test_generic_parameter_type_variadic() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_type() {
+fn parse_generic_parameter_type() {
     "
     fun my_function[T, U=I32, ..V]() -> Void { }
     "
@@ -274,7 +284,7 @@ fn test_generic_parameter_type() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_comp_required() {
+fn parse_generic_parameter_comp_required() {
     "
     fun my_function[cmp n: I32, cmp m: I32]() -> Void { }
     "
@@ -282,7 +292,7 @@ fn test_generic_parameter_comp_required() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_comp_optional() {
+fn parse_generic_parameter_comp_optional() {
     "
     fun my_function[cmp n: I32=1, cmp m: I32=2]() -> Void { }
     "
@@ -290,7 +300,7 @@ fn test_generic_parameter_comp_optional() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_comp_variadic() {
+fn parse_generic_parameter_comp_variadic() {
     "
     fun my_function[cmp ..m: I32]() -> Void { }
     "
@@ -298,7 +308,7 @@ fn test_generic_parameter_comp_variadic() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameter_comp() {
+fn parse_generic_parameter_comp() {
     "
     fun my_function[cmp n: I32, cmp m: I32=1, cmp ..o: I32]() -> Void { }
     "
@@ -306,7 +316,7 @@ fn test_generic_parameter_comp() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_parameters() {
+fn parse_generic_parameters() {
     "
     fun my_function[cmp n: I32, T, cmp m: I32=1, U=Str, cmp ..o: I32, ..V]() -> Void { }
     "
@@ -314,7 +324,7 @@ fn test_generic_parameters() {
 
 #[test]
 #[should_parse_pass]
-fn test_generic_inline_constraints() {
+fn parse_generic_inline_constraints() {
     "
     fun my_function[T: Copy, U: Clone]() -> Void { }
     "
@@ -322,7 +332,7 @@ fn test_generic_inline_constraints() {
 
 #[test]
 #[should_parse_pass]
-fn test_where_block_constraints() {
+fn parse_where_block_constraints() {
     "
     fun my_function[T, U]() -> Void where [T, U: Copy, U: Clone] { }
     "
@@ -330,7 +340,7 @@ fn test_where_block_constraints() {
 
 #[test]
 #[should_parse_pass]
-fn test_annotations() {
+fn parse_annotations() {
     "
     @annotation1
     @annotation2
@@ -340,7 +350,7 @@ fn test_annotations() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_1() {
+fn parse_binary_expression_precedence_1() {
     "
     fun my_function() -> Void {
         variable or other_variable
@@ -350,7 +360,7 @@ fn test_binary_expression_precedence_1() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_2() {
+fn parse_binary_expression_precedence_2() {
     "
     fun my_function() -> Void {
         variable and another_variable
@@ -360,7 +370,7 @@ fn test_binary_expression_precedence_2() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_3() {
+fn parse_binary_expression_precedence_3() {
     "
     fun my_function() -> Void {
         variable is Destructure(a=1, b, ..)
@@ -370,7 +380,7 @@ fn test_binary_expression_precedence_3() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_4() {
+fn parse_binary_expression_precedence_4() {
     "
     fun my_function() -> Void {
         variable == other_variable
@@ -380,7 +390,7 @@ fn test_binary_expression_precedence_4() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_5() {
+fn parse_binary_expression_precedence_5() {
     "
     fun my_function() -> Void {
         variable + other_variable
@@ -390,7 +400,7 @@ fn test_binary_expression_precedence_5() {
 
 #[test]
 #[should_parse_pass]
-fn test_binary_expression_precedence_6() {
+fn parse_binary_expression_precedence_6() {
     "
     fun my_function() -> Void {
         variable * other_variable
@@ -400,7 +410,7 @@ fn test_binary_expression_precedence_6() {
 
 #[test]
 #[should_parse_pass]
-fn test_unary_expression_async_op() {
+fn parse_unary_expression_async_op() {
     "
     fun my_function() -> Void {
         async function()
@@ -410,7 +420,7 @@ fn test_unary_expression_async_op() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_function_call() {
+fn parse_postfix_expression_function_call() {
     "
     fun my_function() -> Void {
         function()
@@ -420,7 +430,7 @@ fn test_postfix_expression_function_call() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_member_access_runtime() {
+fn parse_postfix_expression_member_access_runtime() {
     "
     fun my_function() -> Void {
         variable.field
@@ -430,7 +440,7 @@ fn test_postfix_expression_member_access_runtime() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_member_access_runtime_numeric() {
+fn parse_postfix_expression_member_access_runtime_numeric() {
     "
     fun my_function() -> Void {
         tuple.0
@@ -440,7 +450,7 @@ fn test_postfix_expression_member_access_runtime_numeric() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_member_access_static() {
+fn parse_postfix_expression_member_access_static() {
     "
     fun my_function() -> Void {
         Type::method()
@@ -450,7 +460,7 @@ fn test_postfix_expression_member_access_static() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_early_return() {
+fn parse_postfix_expression_early_return() {
     "
     fun my_function() -> Void {
         function()?
@@ -460,7 +470,7 @@ fn test_postfix_expression_early_return() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_not_keyword() {
+fn parse_postfix_expression_not_keyword() {
     "
     fun my_function() -> Void {
         variable.not
@@ -470,7 +480,7 @@ fn test_postfix_expression_not_keyword() {
 
 #[test]
 #[should_parse_pass]
-fn test_postfix_expression_step_keyword() {
+fn parse_postfix_expression_step_keyword() {
     "
     fun my_function() -> Void {
         generator.step
@@ -480,7 +490,7 @@ fn test_postfix_expression_step_keyword() {
 
 #[test]
 #[should_parse_pass]
-fn test_parenthesized_expression() {
+fn parse_parenthesized_expression() {
     "
     fun my_function() -> Void {
         (variable)
@@ -490,7 +500,7 @@ fn test_parenthesized_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_self_identifier() {
+fn parse_self_identifier() {
     "
     fun my_function() -> Void {
         self
@@ -500,7 +510,7 @@ fn test_self_identifier() {
 
 #[test]
 #[should_parse_pass]
-fn test_fold_expression() {
+fn parse_fold_expression() {
     "
     fun my_function() -> Void {
         tuple + ..
@@ -510,7 +520,7 @@ fn test_fold_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_case_expression_patterns() {
+fn parse_case_expression_patterns() {
     "
     fun my_function() -> Void {
         case my_tuple {
@@ -524,7 +534,7 @@ fn test_case_expression_patterns() {
 
 #[test]
 #[should_parse_pass]
-fn test_case_expression_patterns_simple() {
+fn parse_case_expression_patterns_simple() {
     "
     fun my_function() -> Void {
         case my_tuple == (1, 2, 3) {
@@ -539,7 +549,7 @@ fn test_case_expression_patterns_simple() {
 
 #[test]
 #[should_parse_pass]
-fn test_loop_expression_boolean_condition() {
+fn parse_loop_expression_boolean_condition() {
     "
     fun my_function() -> Void {
         loop true {
@@ -550,7 +560,7 @@ fn test_loop_expression_boolean_condition() {
 
 #[test]
 #[should_parse_pass]
-fn test_loop_expression_iterable_condition() {
+fn parse_loop_expression_iterable_condition() {
     "
     fun my_function() -> Void {
         loop i in some_vector {
@@ -561,7 +571,7 @@ fn test_loop_expression_iterable_condition() {
 
 #[test]
 #[should_parse_pass]
-fn test_loop_expression_else_block() {
+fn parse_loop_expression_else_block() {
     "
     fun my_function() -> Void {
         loop i in some_vector {
@@ -574,7 +584,7 @@ fn test_loop_expression_else_block() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_no_expression() {
+fn parse_gen_no_expression() {
     "
     fun my_function() -> Void {
         gen
@@ -584,7 +594,7 @@ fn test_gen_no_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_mov_expression() {
+fn parse_gen_mov_expression() {
     "
     fun my_function() -> Void {
         gen variable
@@ -594,7 +604,7 @@ fn test_gen_mov_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_ref_expression() {
+fn parse_gen_ref_expression() {
     "
     fun my_function() -> Void {
         gen &variable
@@ -604,7 +614,7 @@ fn test_gen_ref_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_mut_expression() {
+fn parse_gen_mut_expression() {
     "
     fun my_function() -> Void {
         gen &mut variable
@@ -614,7 +624,7 @@ fn test_gen_mut_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_gen_expression_unroll() {
+fn parse_gen_expression_unroll() {
     "
     fun my_function() -> Void {
         gen with another_generator
@@ -624,7 +634,7 @@ fn test_gen_expression_unroll() {
 
 #[test]
 #[should_parse_pass]
-fn test_with_expression() {
+fn parse_with_expression() {
     "
     fun my_function() -> Void {
         with some_function_call() {
@@ -635,7 +645,7 @@ fn test_with_expression() {
 
 #[test]
 #[should_parse_pass]
-fn test_with_expression_alias() {
+fn parse_with_expression_alias() {
     "
     fun my_function() -> Void {
         with some_function_call() as alias {
@@ -646,7 +656,7 @@ fn test_with_expression_alias() {
 
 #[test]
 #[should_parse_pass]
-fn test_ret_statement_no_value() {
+fn parse_ret_statement_no_value() {
     "
     fun my_function() -> Void {
         ret
@@ -656,7 +666,7 @@ fn test_ret_statement_no_value() {
 
 #[test]
 #[should_parse_pass]
-fn test_ret_statement_value() {
+fn parse_ret_statement_value() {
     "
     fun my_function() -> Void {
         ret 1
@@ -666,7 +676,7 @@ fn test_ret_statement_value() {
 
 #[test]
 #[should_parse_pass]
-fn test_exit_statement_no_value() {
+fn parse_exit_statement_no_value() {
     "
     fun my_function() -> Void {
         loop true {
@@ -679,7 +689,7 @@ fn test_exit_statement_no_value() {
 
 #[test]
 #[should_parse_pass]
-fn test_exit_statement_value() {
+fn parse_exit_statement_value() {
     "
     fun my_function() -> Void {
         loop true {
@@ -692,7 +702,7 @@ fn test_exit_statement_value() {
 
 #[test]
 #[should_parse_pass]
-fn test_exit_statement_skip() {
+fn parse_exit_statement_skip() {
     "
     fun my_function() -> Void {
         loop true {
@@ -705,7 +715,7 @@ fn test_exit_statement_skip() {
 
 #[test]
 #[should_parse_pass]
-fn test_skip_statement() {
+fn parse_skip_statement() {
     "
     fun my_function() -> Void {
         loop true {
@@ -718,7 +728,7 @@ fn test_skip_statement() {
 
 #[test]
 #[should_parse_pass]
-fn test_inner_scope() {
+fn parse_inner_scope() {
     "
     fun my_function() -> Void {
         {
@@ -730,7 +740,7 @@ fn test_inner_scope() {
 
 #[test]
 #[should_parse_pass]
-fn test_global_use_statement() {
+fn parse_global_use_statement() {
     "
     use MyString = Str
     "
@@ -738,7 +748,7 @@ fn test_global_use_statement() {
 
 #[test]
 #[should_parse_pass]
-fn test_global_constant() {
+fn parse_global_constant() {
     "
     cmp constant: I32 = 1
     "
@@ -750,6 +760,16 @@ fn parse_let_statement_initialized() {
     "
     fun my_function() -> Void {
         let a = 1
+    }
+    "
+}
+
+#[test]
+#[should_parse_pass]
+fn parse_let_statement_initialized_explicit_type() {
+    "
+    fun my_function() -> Void {
+        let a: std::number::bigint::BigInt = 1
     }
     "
 }

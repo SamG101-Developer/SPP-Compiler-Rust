@@ -10,5 +10,6 @@ colored = "*"
 glob = "*"
 indicatif = "*"
 delegation = { git = "https://github.com/arcane-rs/delegation", branch = "main" }
+copy_dir = "*"
 convert_case = "*"
 proc_macros = { path = "../proc_macros" }

@@ -5,38 +5,23 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericParameterTypeVariadicAst {
-    pos: usize,
     tok_variadic: TokenAst,
     name: TypeAst,
     constraints: Option<GenericParameterConstraintsAst>,
 }
 
 impl GenericParameterTypeVariadicAst {
-    pub fn new(
-        pos: usize,
-        tok_variadic: TokenAst,
-        name: TypeAst,
-        constraints: Option<GenericParameterConstraintsAst>,
-    ) -> Self {
-        Self {
-            pos,
-            tok_variadic,
-            name,
-            constraints,
-        }
+    pub fn new(tok_variadic: TokenAst, name: TypeAst, constraints: Option<GenericParameterConstraintsAst>) -> Self {
+        Self { tok_variadic, name, constraints }
     }
 }
 
 impl Ast for GenericParameterTypeVariadicAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_variadic.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(constraints) = &self.constraints {
-            constraints.get_final_pos()
-        } else {
-            self.name.get_final_pos()
-        }
+        self.constraints.as_ref().map_or(self.name.get_final_pos(), |c| c.get_final_pos())
     }
 }

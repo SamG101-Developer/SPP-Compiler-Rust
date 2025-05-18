@@ -5,7 +5,6 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericParameterTypeOptionalAst {
-    pos: usize,
     name: TypeAst,
     constraints: Option<GenericParameterConstraintsAst>,
     tok_assign: TokenAst,
@@ -13,26 +12,14 @@ pub struct GenericParameterTypeOptionalAst {
 }
 
 impl GenericParameterTypeOptionalAst {
-    pub fn new(
-        pos: usize,
-        name: TypeAst,
-        constraints: Option<GenericParameterConstraintsAst>,
-        tok_assign: TokenAst,
-        default: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            name,
-            constraints,
-            tok_assign,
-            default,
-        }
+    pub fn new(name: TypeAst, constraints: Option<GenericParameterConstraintsAst>, tok_assign: TokenAst, default: TypeAst) -> Self {
+        Self { name, constraints, tok_assign, default }
     }
 }
 
 impl Ast for GenericParameterTypeOptionalAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.name.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

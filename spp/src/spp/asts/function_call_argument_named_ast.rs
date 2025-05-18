@@ -6,7 +6,6 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct FunctionCallArgumentNamedAst {
-    pos: usize,
     name: IdentifierAst,
     tok_assign: TokenAst,
     convention: Option<ConventionAst>,
@@ -14,26 +13,14 @@ pub struct FunctionCallArgumentNamedAst {
 }
 
 impl FunctionCallArgumentNamedAst {
-    pub fn new(
-        pos: usize,
-        name: IdentifierAst,
-        tok_assign: TokenAst,
-        convention: Option<ConventionAst>,
-        value: ExpressionAst,
-    ) -> Self {
-        Self {
-            pos,
-            name,
-            tok_assign,
-            convention,
-            value,
-        }
+    pub fn new(name: IdentifierAst, tok_assign: TokenAst, convention: Option<ConventionAst>, value: ExpressionAst, ) -> Self {
+        Self { name, tok_assign, convention, value }
     }
 }
 
 impl Ast for FunctionCallArgumentNamedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.name.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

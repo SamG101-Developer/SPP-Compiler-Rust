@@ -1,7 +1,4 @@
-use crate::spp::analyse::utilities::semantic_error::SemanticError;
-use crate::spp::analyse::scopes::scope_manager::ScopeManager;
 use crate::spp::asts::ast::Ast;
-use crate::spp::asts::ast::PreProcessingContext;
 use crate::spp::asts::ast::ToBinaryExpression;
 use crate::spp::asts::expression_ast::ExpressionAst;
 use crate::spp::asts::is_expression_ast::IsExpressionAst;
@@ -75,12 +72,7 @@ pub enum PatternVariantNestedForAttributeBindingAst {
 }
 
 impl ToBinaryExpression for PatternVariantAst {
-    fn to_binary_expression(
-        pos: usize,
-        lhs: ExpressionAst,
-        op: TokenAst,
-        rhs: Self,
-    ) -> ExpressionAst {
-        ExpressionAst::Is(IsExpressionAst::new(pos, Box::new(lhs), op, Box::new(rhs)))
+    fn to_binary_expression(lhs: ExpressionAst, op: TokenAst, rhs: Self) -> ExpressionAst {
+        ExpressionAst::Is(IsExpressionAst::new(Box::new(lhs), op, Box::new(rhs)))
     }
 }

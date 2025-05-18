@@ -12,6 +12,25 @@ impl IdentifierAst {
     pub fn new(pos: usize, value: String) -> Self {
         Self { pos, value }
     }
+    
+    pub fn as_function_identifier(&self) -> IdentifierAst {
+        todo!()
+    }
+}
+
+impl From<&TypeAst> for IdentifierAst {
+    fn from(type_: &TypeAst) -> Self {
+        match type_ {
+            TypeAst::Single(type_) => IdentifierAst::new(type_.get_pos(), type_.name.clone().value),
+            _ => panic!("TypeAst::Single expected"),
+        }
+    }
+}
+
+impl From<&GenericIdentifierAst> for IdentifierAst {
+    fn from(value: &GenericIdentifierAst) -> Self {
+        IdentifierAst::new(value.pos, value.value.clone())
+    }
 }
 
 impl Ast for IdentifierAst {
@@ -21,20 +40,5 @@ impl Ast for IdentifierAst {
 
     fn get_final_pos(&self) -> usize {
         self.pos + self.value.len()
-    }
-}
-
-impl From<&TypeAst> for IdentifierAst {
-    fn from(type_: &TypeAst) -> Self {
-        match type_ {
-            TypeAst::Single(type_) => IdentifierAst::new(type_.pos, type_.name.clone().value),
-            _ => panic!("TypeAst::Single expected"),
-        }
-    }
-}
-
-impl From<&GenericIdentifierAst> for IdentifierAst {
-    fn from(value: &GenericIdentifierAst) -> Self {
-        IdentifierAst::new(value.pos, value.value.clone())
     }
 }

@@ -4,24 +4,19 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct ObjectInitializerArgumentUnnamedAst {
-    pos: usize,
     tok_default: Option<TokenAst>,
     name: ExpressionAst,
 }
 
 impl ObjectInitializerArgumentUnnamedAst {
-    pub fn new(pos: usize, tok_default: Option<TokenAst>, name: ExpressionAst) -> Self {
-        Self {
-            pos,
-            tok_default,
-            name,
-        }
+    pub fn new(tok_default: Option<TokenAst>, name: ExpressionAst) -> Self {
+        Self { tok_default, name }
     }
 }
 
 impl Ast for ObjectInitializerArgumentUnnamedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_default.as_ref().map_or(self.name.get_pos(), |t| t.get_pos())
     }
 
     fn get_final_pos(&self) -> usize {

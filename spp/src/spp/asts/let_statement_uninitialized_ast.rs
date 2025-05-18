@@ -5,7 +5,6 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct LetStatementUninitializedAst {
-    pos: usize,
     tok_let: TokenAst,
     assign_to: LocalVariableAst,
     tok_colon: TokenAst,
@@ -13,26 +12,14 @@ pub struct LetStatementUninitializedAst {
 }
 
 impl LetStatementUninitializedAst {
-    pub fn new(
-        pos: usize,
-        tok_let: TokenAst,
-        assign_to: LocalVariableAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_let,
-            assign_to,
-            tok_colon,
-            type_,
-        }
+    pub fn new(tok_let: TokenAst, assign_to: LocalVariableAst, tok_colon: TokenAst, type_: TypeAst) -> Self {
+        Self { tok_let, assign_to, tok_colon, type_ }
     }
 }
 
 impl Ast for LetStatementUninitializedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_let.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

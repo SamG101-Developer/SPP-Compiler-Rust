@@ -37,6 +37,10 @@ fn main() {
             println!("Cleaning the S++ project in {} mode...", mode);
             spp_cli::handle_clean(&mode);
         }
+        Some(("validate", validate_matches)) => {
+            println!("Validating the S++ project");
+            spp_cli::handle_validate();
+        }
         Some(("version", _)) => {
             println!("S++ version 0.1.0");
             spp_cli::handle_version();

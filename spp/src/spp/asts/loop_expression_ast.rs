@@ -8,7 +8,6 @@ use crate::spp::asts::ast::Ast;
 
 #[derive(Clone, Debug)]
 pub struct LoopExpressionAst {
-    pub pos: usize,
     pub tok_loop: TokenAst,
     pub condition: LoopConditionAst,
     pub body: InnerScopeAst,
@@ -19,35 +18,17 @@ pub struct LoopExpressionAst {
 }
 
 impl LoopExpressionAst {
-    pub fn new(
-        pos: usize,
-        tok_loop: TokenAst,
-        condition: LoopConditionAst,
-        body: InnerScopeAst,
-        else_block: Option<LoopElseStatementAst>,
-    ) -> Self {
-        Self {
-            pos,
-            tok_loop,
-            condition,
-            body,
-            else_block,
-            _loop_type_info: Default::default(),
-            _loop_level: Default::default(),
-        }
+    pub fn new(tok_loop: TokenAst, condition: LoopConditionAst, body: InnerScopeAst, else_block: Option<LoopElseStatementAst>) -> Self {
+        Self { tok_loop, condition, body, else_block, _loop_type_info: Default::default(), _loop_level: Default::default() }
     }
 }
 
 impl Ast for LoopExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_loop.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(else_block) = &self.else_block {
-            else_block.get_final_pos()
-        } else {
-            self.body.get_final_pos()
-        }
+        self.else_block.as_ref().map_or(self.body.get_final_pos(), |t| t.get_final_pos())
     }
 }

@@ -4,35 +4,22 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericParameterTypeRequiredAst {
-    pos: usize,
     name: TypeAst,
     constraints: Option<GenericParameterConstraintsAst>,
 }
 
 impl GenericParameterTypeRequiredAst {
-    pub fn new(
-        pos: usize,
-        name: TypeAst,
-        constraints: Option<GenericParameterConstraintsAst>,
-    ) -> Self {
-        Self {
-            pos,
-            name,
-            constraints,
-        }
+    pub fn new(name: TypeAst, constraints: Option<GenericParameterConstraintsAst>) -> Self {
+        Self { name, constraints }
     }
 }
 
 impl Ast for GenericParameterTypeRequiredAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.name.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(constraints) = &self.constraints {
-            constraints.get_final_pos()
-        } else {
-            self.name.get_final_pos()
-        }
+        self.constraints.as_ref().map_or(self.name.get_final_pos(), |c| c.get_final_pos())
     }
 }

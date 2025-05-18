@@ -3,7 +3,6 @@ use crate::spp::asts::token_ast::TokenAst;
 use crate::spp::asts::type_ast::TypeAst;
 
 pub struct TypeArrayAst {
-    pub pos: usize,
     pub tok_left_bracket: TokenAst,
     pub type_: TypeAst,
     pub tok_comma: TokenAst,
@@ -12,28 +11,14 @@ pub struct TypeArrayAst {
 }
 
 impl TypeArrayAst {
-    pub fn new(
-        pos: usize,
-        tok_left_bracket: TokenAst,
-        type_: TypeAst,
-        tok_comma: TokenAst,
-        size: TokenAst,
-        tok_right_bracket: TokenAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_left_bracket,
-            type_,
-            tok_comma,
-            size,
-            tok_right_bracket,
-        }
+    pub fn new(tok_left_bracket: TokenAst, type_: TypeAst, tok_comma: TokenAst, size: TokenAst, tok_right_bracket: TokenAst) -> Self {
+        Self { tok_left_bracket, type_, tok_comma, size, tok_right_bracket }
     }
 }
 
 impl Ast for TypeArrayAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_left_bracket.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

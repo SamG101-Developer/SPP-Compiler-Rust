@@ -4,31 +4,20 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct TypeParenthesizedExpressionAst {
-    pub pos: usize,
     pub left_parenthesis: TokenAst,
     pub expression: Box<TypeAst>,
     pub right_parenthesis: TokenAst,
 }
 
 impl TypeParenthesizedExpressionAst {
-    pub fn new(
-        pos: usize,
-        left_parenthesis: TokenAst,
-        expression: Box<TypeAst>,
-        right_parenthesis: TokenAst,
-    ) -> Self {
-        Self {
-            pos,
-            left_parenthesis,
-            expression,
-            right_parenthesis,
-        }
+    pub fn new(left_parenthesis: TokenAst, expression: Box<TypeAst>, right_parenthesis: TokenAst) -> Self {
+        Self { left_parenthesis, expression, right_parenthesis }
     }
 }
 
 impl Ast for TypeParenthesizedExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.left_parenthesis.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

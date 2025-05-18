@@ -4,20 +4,19 @@ use crate::spp::asts::postfix_expression_operator_ast::PostfixExpressionOperator
 
 #[derive(Clone, Debug)]
 pub struct PostfixExpressionAst {
-    pub pos: usize,
     pub lhs: Box<ExpressionAst>,
     pub op: PostfixExpressionOperatorAst,
 }
 
 impl PostfixExpressionAst {
-    pub fn new(pos: usize, lhs: Box<ExpressionAst>, op: PostfixExpressionOperatorAst) -> Self {
-        Self { pos, lhs, op }
+    pub fn new(lhs: Box<ExpressionAst>, op: PostfixExpressionOperatorAst) -> Self {
+        Self { lhs, op }
     }
 }
 
 impl Ast for PostfixExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.lhs.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

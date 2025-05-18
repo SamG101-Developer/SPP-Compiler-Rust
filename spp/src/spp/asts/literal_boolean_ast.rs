@@ -3,19 +3,18 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct LiteralBooleanAst {
-    pub(crate) pos: usize,
-    pub(crate) value: TokenAst,
+    pub value: TokenAst,
 }
 
 impl LiteralBooleanAst {
-    pub fn new(pos: usize, value: TokenAst) -> Self {
-        Self { pos, value }
+    pub fn new(value: TokenAst) -> Self {
+        Self { value }
     }
 }
 
 impl Ast for LiteralBooleanAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.value.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

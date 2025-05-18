@@ -4,24 +4,19 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Debug, Clone)]
 pub struct TypeUnaryExpressionOperatorNamespaceAst {
-    pos: usize,
     name: IdentifierAst,
     tok_colon: TokenAst,
 }
 
 impl TypeUnaryExpressionOperatorNamespaceAst {
-    pub fn new(pos: usize, name: IdentifierAst, tok_colon: TokenAst) -> Self {
-        Self {
-            pos,
-            name,
-            tok_colon,
-        }
+    pub fn new(name: IdentifierAst, tok_colon: TokenAst) -> Self {
+        Self { name, tok_colon }
     }
 }
 
 impl Ast for TypeUnaryExpressionOperatorNamespaceAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.name.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

@@ -137,3 +137,7 @@ pub mod use_statement_redux_ast;
 pub mod where_block_ast;
 pub mod where_constraints_ast;
 pub mod where_constraints_group_ast;
+mod lambda_expresion_ast;
+mod lambda_expression_capture_item_ast;
+mod lambda_expression_parameter_and_capture_group_ast;
+mod lambda_expression_parameter_ast;

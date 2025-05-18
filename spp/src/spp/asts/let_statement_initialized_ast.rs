@@ -6,44 +6,25 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct LetStatementInitializedAst {
-    pos: usize,
     tok_let: TokenAst,
     assign_to: LocalVariableAst,
+    explicit_type: Option<TypeAst>,
     tok_assign: TokenAst,
     value: ExpressionAst,
-    explicit_type: Option<TypeAst>,
 }
 
 impl LetStatementInitializedAst {
-    pub fn new(
-        pos: usize,
-        tok_let: TokenAst,
-        assign_to: LocalVariableAst,
-        tok_assign: TokenAst,
-        value: ExpressionAst,
-        explicit_type: Option<TypeAst>,
-    ) -> Self {
-        Self {
-            pos,
-            tok_let,
-            assign_to,
-            tok_assign,
-            value,
-            explicit_type,
-        }
+    pub fn new(tok_let: TokenAst, assign_to: LocalVariableAst, explicit_type: Option<TypeAst>, tok_assign: TokenAst, value: ExpressionAst) -> Self {
+        Self { tok_let, assign_to, explicit_type, tok_assign, value}
     }
 }
 
 impl Ast for LetStatementInitializedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_let.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(explicit_type) = &self.explicit_type {
-            explicit_type.get_final_pos()
-        } else {
-            self.value.get_final_pos()
-        }
+        self.value.get_final_pos()
     }
 }

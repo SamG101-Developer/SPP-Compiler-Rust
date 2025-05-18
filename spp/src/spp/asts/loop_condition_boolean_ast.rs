@@ -3,19 +3,18 @@ use crate::spp::asts::expression_ast::ExpressionAst;
 
 #[derive(Clone, Debug)]
 pub struct LoopConditionBooleanAst {
-    pos: usize,
     condition: Box<ExpressionAst>,
 }
 
 impl LoopConditionBooleanAst {
-    pub fn new(pos: usize, condition: Box<ExpressionAst>) -> Self {
-        Self { pos, condition }
+    pub fn new(condition: Box<ExpressionAst>) -> Self {
+        Self { condition }
     }
 }
 
 impl Ast for LoopConditionBooleanAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.condition.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

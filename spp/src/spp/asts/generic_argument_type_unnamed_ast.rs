@@ -3,19 +3,18 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericArgumentTypeUnnamedAst {
-    pos: usize,
     type_: TypeAst,
 }
 
 impl GenericArgumentTypeUnnamedAst {
-    pub fn new(pos: usize, type_: TypeAst) -> Self {
-        Self { pos, type_ }
+    pub fn new(type_: TypeAst) -> Self {
+        Self { type_ }
     }
 }
 
 impl Ast for GenericArgumentTypeUnnamedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.type_.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

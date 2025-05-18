@@ -25,17 +25,7 @@ pub trait AbstractTypeAst {
     ) -> TypeAst;
 
     fn contains_generic(&self, generic_parameter_name: &TypeAst) -> bool;
-
-    fn symbolic_eq(
-        &self,
-        that: &TypeAst,
-        self_scope: &Scope,
-        that_scope: &Scope,
-        check_variant: bool,
-    ) -> bool;
-
-    fn split_to_scope_and_type(&self, scope: &Scope) -> (Rc<RefCell<Scope>>, TypeAst);
-
+    
     fn get_convention(&self) -> ConventionAst;
 
     fn with_convention(&mut self) -> Self;

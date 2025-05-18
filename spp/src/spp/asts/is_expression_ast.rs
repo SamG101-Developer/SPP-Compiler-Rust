@@ -5,31 +5,20 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct IsExpressionAst {
-    pub pos: usize,
     pub left: Box<ExpressionAst>,
     pub operator: TokenAst,
     pub right: Box<PatternVariantAst>,
 }
 
 impl IsExpressionAst {
-    pub fn new(
-        pos: usize,
-        left: Box<ExpressionAst>,
-        operator: TokenAst,
-        right: Box<PatternVariantAst>,
-    ) -> Self {
-        Self {
-            pos,
-            left,
-            operator,
-            right,
-        }
+    pub fn new(left: Box<ExpressionAst>, operator: TokenAst, right: Box<PatternVariantAst>) -> Self {
+        Self { left, operator, right }
     }
 }
 
 impl Ast for IsExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.left.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

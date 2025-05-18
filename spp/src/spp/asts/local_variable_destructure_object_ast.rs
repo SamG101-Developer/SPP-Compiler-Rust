@@ -5,7 +5,6 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct LocalVariableDestructureObjectAst {
-    pub pos: usize,
     pub type_: TypeAst,
     pub tok_parenthesis_l: TokenAst,
     pub elements: Vec<LocalVariableNestedForDestructureObjectAst>,
@@ -13,26 +12,14 @@ pub struct LocalVariableDestructureObjectAst {
 }
 
 impl LocalVariableDestructureObjectAst {
-    pub fn new(
-        pos: usize,
-        type_: TypeAst,
-        tok_parenthesis_l: TokenAst,
-        elements: Vec<LocalVariableNestedForDestructureObjectAst>,
-        tok_parenthesis_r: TokenAst,
-    ) -> Self {
-        Self {
-            pos,
-            type_,
-            tok_parenthesis_l,
-            elements,
-            tok_parenthesis_r,
-        }
+    pub fn new(type_: TypeAst, tok_parenthesis_l: TokenAst, elements: Vec<LocalVariableNestedForDestructureObjectAst>, tok_parenthesis_r: TokenAst) -> Self {
+        Self { type_, tok_parenthesis_l, elements, tok_parenthesis_r }
     }
 }
 
 impl Ast for LocalVariableDestructureObjectAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.type_.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

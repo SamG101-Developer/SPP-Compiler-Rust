@@ -3,19 +3,18 @@ use crate::spp::asts::expression_ast::ExpressionAst;
 
 #[derive(Clone, Debug)]
 pub struct PatternVariantExpressionAst {
-    pub pos: usize,
     pub expression: ExpressionAst,
 }
 
 impl PatternVariantExpressionAst {
-    pub fn new(pos: usize, expression: ExpressionAst) -> Self {
-        Self { pos, expression }
+    pub fn new(expression: ExpressionAst) -> Self {
+        Self { expression }
     }
 }
 
 impl Ast for PatternVariantExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.expression.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

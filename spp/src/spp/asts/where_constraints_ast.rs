@@ -4,31 +4,20 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct WhereConstraintsAst {
-    pub pos: usize,
     pub types: Vec<TypeAst>,
     pub tok_colon: TokenAst,
     pub constraints: TypeAst,
 }
 
 impl WhereConstraintsAst {
-    pub fn new(
-        pos: usize,
-        types: Vec<TypeAst>,
-        tok_colon: TokenAst,
-        constraints: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            types,
-            tok_colon,
-            constraints,
-        }
+    pub fn new(types: Vec<TypeAst>, tok_colon: TokenAst, constraints: TypeAst) -> Self {
+        Self { types, tok_colon, constraints }
     }
 }
 
 impl Ast for WhereConstraintsAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.types.first().as_ref().unwrap().get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

@@ -1,9 +1,5 @@
-use crate::spp::analyse::scopes::scope::Scope;
-use crate::spp::analyse::scopes::scope_manager::ScopeManager;
 use crate::spp::analyse::utilities::common_types::CommonTypes;
-use crate::spp::analyse::utilities::semantic_error::SemanticError;
 use crate::spp::asts::ast::Ast;
-use crate::spp::asts::ast::PreProcessingContext;
 use crate::spp::asts::convention_ast::ConventionAst;
 use crate::spp::asts::generic_argument_ast::GenericArgumentAst;
 use crate::spp::asts::generic_identifier_ast::GenericIdentifierAst;
@@ -17,8 +13,6 @@ use crate::spp::asts::type_single_ast::TypeSingleAst;
 use crate::spp::asts::type_tuple_ast::TypeTupleAst;
 use crate::spp::asts::type_unary_expression_ast::TypeUnaryExpressionAst;
 use crate::spp::lexer::token::TokenAstTokenType;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 #[delegation::delegate(derive(Ast))]
@@ -53,15 +47,7 @@ impl AbstractTypeAst for TypeAst {
     fn contains_generic(&self, generic_parameter_name: &TypeAst) -> bool {
         todo!()
     }
-
-    fn symbolic_eq(&self, that: &TypeAst, self_scope: &Scope, that_scope: &Scope, check_variant: bool) -> bool {
-        todo!()
-    }
-
-    fn split_to_scope_and_type(&self, scope: &Scope) -> (Rc<RefCell<Scope>>, TypeAst) {
-        todo!()
-    }
-
+    
     fn get_convention(&self) -> ConventionAst {
         todo!()
     }
@@ -81,27 +67,15 @@ impl Default for TypeAst {
     }
 }
 
-impl From<GenericIdentifierAst> for TypeAst {
-    fn from(name: GenericIdentifierAst) -> Self {
-        TypeAst::Single(TypeSingleAst::new(name.get_pos(), name))
-    }
-}
-
-impl From<IdentifierAst> for TypeAst {
-    fn from(name: IdentifierAst) -> Self {
-        TypeAst::Single(TypeSingleAst::new(
-            name.get_pos(),
-            GenericIdentifierAst::from(name),
-        ))
+impl From<&GenericIdentifierAst> for TypeAst {
+    fn from(name: &GenericIdentifierAst) -> Self {
+        TypeAst::Single(TypeSingleAst::new(name.clone()))
     }
 }
 
 impl From<&IdentifierAst> for TypeAst {
     fn from(name: &IdentifierAst) -> Self {
-        TypeAst::Single(TypeSingleAst::new(
-            name.get_pos(),
-            GenericIdentifierAst::from(name),
-        ))
+        TypeAst::Single(TypeSingleAst::new(GenericIdentifierAst::from(name)))
     }
 }
 
@@ -113,27 +87,24 @@ impl From<TypeParenthesizedExpressionAst> for TypeAst {
 
 impl From<TypeTupleAst> for TypeAst {
     fn from(tuple: TypeTupleAst) -> TypeAst {
-        CommonTypes::tuple(tuple.type_list, tuple.pos)
+        let pos = tuple.get_pos();
+        CommonTypes::tuple(tuple.type_list)
     }
 }
 
 impl From<TypeArrayAst> for TypeAst {
     fn from(array: TypeArrayAst) -> TypeAst {
-        CommonTypes::array(array.type_, array.size, array.pos)
+        let pos = array.get_pos();
+        CommonTypes::array(array.type_, array.size)
     }
 }
 
 impl From<TypeBinaryExpressionAst> for TypeAst {
     fn from(binary_expression: TypeBinaryExpressionAst) -> TypeAst {
+        let pos = binary_expression.get_pos();
         match binary_expression.op.token_type {
-            TokenAstTokenType::KwAnd => CommonTypes::intersection(
-                Vec::from([*binary_expression.left, *binary_expression.right]),
-                binary_expression.pos,
-            ),
-            TokenAstTokenType::KwOr => CommonTypes::variant(
-                Vec::from([*binary_expression.left, *binary_expression.right]),
-                binary_expression.pos,
-            ),
+            TokenAstTokenType::KwAnd => CommonTypes::intersection(Vec::from([*binary_expression.left, *binary_expression.right])),
+            TokenAstTokenType::KwOr => CommonTypes::variant(Vec::from([*binary_expression.left, *binary_expression.right])),
             _ => panic!("Invalid binary expression operator"),
         }
     }

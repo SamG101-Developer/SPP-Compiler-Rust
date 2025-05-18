@@ -10,33 +10,15 @@ pub struct GenericIdentifierAst {
 }
 
 impl GenericIdentifierAst {
-    pub fn new(
-        pos: usize,
-        value: String,
-        generic_args_group: Option<GenericArgumentGroupAst>,
-    ) -> Self {
-        Self {
-            pos,
-            value,
-            generic_args_group,
-        }
-    }
-}
-
-impl From<IdentifierAst> for GenericIdentifierAst {
-    fn from(identifier: IdentifierAst) -> Self {
-        Self {
-            pos: identifier.pos,
-            value: identifier.value.clone(),
-            generic_args_group: None,
-        }
+    pub fn new(pos: usize, value: String, generic_args_group: Option<GenericArgumentGroupAst>) -> Self {
+        Self { pos, value, generic_args_group }
     }
 }
 
 impl From<&IdentifierAst> for GenericIdentifierAst {
     fn from(identifier: &IdentifierAst) -> Self {
         Self {
-            pos: identifier.pos,
+            pos: identifier.get_pos(),
             value: identifier.value.clone(),
             generic_args_group: None,
         }
@@ -49,10 +31,6 @@ impl Ast for GenericIdentifierAst {
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(generic_args_group) = &self.generic_args_group {
-            generic_args_group.get_final_pos()
-        } else {
-            self.pos + self.value.len()
-        }
+        self.generic_args_group.as_ref().map_or(self.pos + self.value.len(), |g| g.get_final_pos())
     }
 }

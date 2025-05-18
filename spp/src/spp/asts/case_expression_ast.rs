@@ -11,7 +11,6 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct CaseExpressionAst {
-    pub pos: usize,
     pub tok_case: TokenAst,
     pub condition: Box<ExpressionAst>,
     pub tok_of: TokenAst,
@@ -19,51 +18,26 @@ pub struct CaseExpressionAst {
 }
 
 impl CaseExpressionAst {
-    pub fn new(
-        pos: usize,
-        tok_case: TokenAst,
-        condition: Box<ExpressionAst>,
-        tok_of: TokenAst,
-        branches: Vec<CaseExpressionBranchAst>,
-    ) -> Self {
-        Self {
-            pos,
-            tok_case,
-            condition,
-            tok_of,
-            branches,
-        }
+    pub fn new(tok_case: TokenAst, condition: Box<ExpressionAst>, tok_of: TokenAst, branches: Vec<CaseExpressionBranchAst>) -> Self {
+        Self { tok_case, condition, tok_of, branches }
     }
 
-    pub fn new_from_simple(
-        pos: usize,
-        tok_case: TokenAst,
-        condition: Box<ExpressionAst>,
-        inner_scope: InnerScopeAst,
-        mut branches: Vec<CaseExpressionBranchAst>,
-    ) -> Self {
-
+    pub fn new_from_simple(tok_case: TokenAst, condition: Box<ExpressionAst>, inner_scope: InnerScopeAst, mut branches: Vec<CaseExpressionBranchAst>) -> Self {
+        
+        let pos = tok_case.get_pos();
         let first_pattern = PatternVariantAst::Expression(PatternVariantExpressionAst::new(
-            pos,
-            ExpressionAst::Primary(PrimaryExpressionAst::Literal(LiteralAst::Boolean(LiteralBooleanAst { pos, value: TokenAst::new_from_pos(pos)}))),
+            ExpressionAst::Primary(PrimaryExpressionAst::Literal(LiteralAst::Boolean(LiteralBooleanAst { value: TokenAst::new_from_pos(pos)}))),
         ));
 
-        let first_branch = CaseExpressionBranchAst::new(pos, Some(TokenAst::new_from_pos(pos)), vec![first_pattern], None, inner_scope);
+        let first_branch = CaseExpressionBranchAst::new(Some(TokenAst::new_from_pos(pos)), vec![first_pattern], None, inner_scope);
         branches.insert(0, first_branch);
-
-        Self {
-            pos,
-            tok_case,
-            condition,
-            tok_of: TokenAst::new_from_pos(pos),
-            branches,
-        }
+        Self { tok_case, condition, tok_of: TokenAst::new_from_pos(pos), branches }
     }
 }
 
 impl Ast for CaseExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_case.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

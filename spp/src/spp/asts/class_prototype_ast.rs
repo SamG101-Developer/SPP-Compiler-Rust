@@ -1,4 +1,3 @@
-use crate::spp::analyse::utilities::semantic_error::SemanticError;
 use crate::spp::asts::annotation_ast::AnnotationAst;
 use crate::spp::asts::ast::{Ast, PreProcessingContext};
 use crate::spp::asts::class_implementation_ast::ClassImplementationAst;
@@ -9,7 +8,6 @@ use crate::spp::asts::where_block_ast::WhereBlockAst;
 
 #[derive(Clone, Debug, Default)]
 pub struct ClassPrototypeAst {
-    pub pos: usize,
     pub annotations: Vec<AnnotationAst>,
     pub tok_cls: TokenAst,
     pub name: TypeAst,
@@ -23,7 +21,6 @@ pub struct ClassPrototypeAst {
 
 impl ClassPrototypeAst {
     pub fn new(
-        pos: usize,
         annotations: Vec<AnnotationAst>,
         tok_cls: TokenAst,
         name: TypeAst,
@@ -31,23 +28,13 @@ impl ClassPrototypeAst {
         where_block: Option<WhereBlockAst>,
         body: ClassImplementationAst,
     ) -> Self {
-        Self {
-            pos,
-            annotations,
-            tok_cls,
-            name,
-            generic_param_group,
-            where_block,
-            body,
-            is_alias: false,
-            _ctx: None,
-        }
+        Self { annotations, tok_cls, name, generic_param_group, where_block, body, is_alias: false, _ctx: None, }
     }
 }
 
 impl Ast for ClassPrototypeAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.annotations.first().map_or(self.tok_cls.get_pos(), |a| a.get_pos())
     }
 
     fn get_final_pos(&self) -> usize {
@@ -58,10 +45,10 @@ impl Ast for ClassPrototypeAst {
         }
     }
 
-    fn stage_1_preprocess_asts(&mut self, context: PreProcessingContext) -> Result<(), SemanticError> {
-        self._ctx = Some(context.clone());
-        self.annotations.iter_mut().try_for_each(|a| a.stage_1_preprocess_asts(context.clone()))?;
-        self.body.stage_1_preprocess_asts(context)?;
-        Ok(())
-    }
+    // fn stage_1_preprocess_asts(&mut self, context: PreProcessingContext) -> Result<(), SemanticError> {
+    //     self._ctx = Some(context.clone());
+    //     self.annotations.iter_mut().try_for_each(|a| a.stage_1_preprocess_asts(context.clone()))?;
+    //     self.body.stage_1_preprocess_asts(context)?;
+    //     Ok(())
+    // }
 }

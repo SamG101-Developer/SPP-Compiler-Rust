@@ -8,7 +8,6 @@ use crate::spp::asts::where_block_ast::WhereBlockAst;
 
 #[derive(Clone, Debug)]
 pub struct SupPrototypeFunctionsAst {
-    pos: usize,
     tok_sup: TokenAst,
     generic_param_group: Option<GenericParameterGroupAst>,
     name: TypeAst,
@@ -18,29 +17,14 @@ pub struct SupPrototypeFunctionsAst {
 }
 
 impl SupPrototypeFunctionsAst {
-    pub fn new(
-        pos: usize,
-        tok_sup: TokenAst,
-        generic_param_group: Option<GenericParameterGroupAst>,
-        name: TypeAst,
-        where_block: Option<WhereBlockAst>,
-        body: SupImplementationAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_sup,
-            generic_param_group,
-            name,
-            where_block,
-            body,
-            scope_cls: None,
-        }
+    pub fn new(tok_sup: TokenAst, generic_param_group: Option<GenericParameterGroupAst>, name: TypeAst, where_block: Option<WhereBlockAst>, body: SupImplementationAst) -> Self {
+        Self { tok_sup, generic_param_group, name, where_block, body, scope_cls: None }
     }
 }
 
 impl Ast for SupPrototypeFunctionsAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_sup.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

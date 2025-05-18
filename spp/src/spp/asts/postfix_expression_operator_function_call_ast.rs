@@ -8,7 +8,6 @@ use crate::spp::asts::unary_expression_operator_async_ast::UnaryExpressionOperat
 
 #[derive(Clone, Debug)]
 pub struct PostfixExpressionOperatorFunctionCallAst {
-    pub pos: usize,
     pub generic_args_group: Option<GenericArgumentGroupAst>,
     pub function_args_group: FunctionCallArgumentGroupAst,
     pub tok_fold: Option<TokenAst>,
@@ -18,26 +17,14 @@ pub struct PostfixExpressionOperatorFunctionCallAst {
 }
 
 impl PostfixExpressionOperatorFunctionCallAst {
-    pub fn new(
-        pos: usize,
-        generic_args_group: Option<GenericArgumentGroupAst>,
-        function_args_group: FunctionCallArgumentGroupAst,
-        tok_fold: Option<TokenAst>,
-    ) -> Self {
-        Self {
-            pos,
-            generic_args_group,
-            function_args_group,
-            tok_fold,
-            _overload: None,
-            _is_async: None,
-        }
+    pub fn new(generic_args_group: Option<GenericArgumentGroupAst>, function_args_group: FunctionCallArgumentGroupAst, tok_fold: Option<TokenAst>) -> Self {
+        Self { generic_args_group, function_args_group, tok_fold, _overload: None, _is_async: None }
     }
 }
 
 impl Ast for PostfixExpressionOperatorFunctionCallAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.generic_args_group.as_ref().map_or(self.function_args_group.get_pos(), |g| g.get_pos())
     }
 
     fn get_final_pos(&self) -> usize {

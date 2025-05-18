@@ -4,24 +4,19 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct PatternGuardAst {
-    pub pos: usize,
     pub tok_guard: TokenAst,
     pub expression: ExpressionAst,
 }
 
 impl PatternGuardAst {
-    pub fn new(pos: usize, tok_guard: TokenAst, expression: ExpressionAst) -> Self {
-        Self {
-            pos,
-            tok_guard,
-            expression,
-        }
+    pub fn new(tok_guard: TokenAst, expression: ExpressionAst) -> Self {
+        Self { tok_guard, expression }
     }
 }
 
 impl Ast for PatternGuardAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_guard.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

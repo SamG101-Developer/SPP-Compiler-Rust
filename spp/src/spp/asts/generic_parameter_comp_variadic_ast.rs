@@ -4,7 +4,6 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericParameterCompVariadicAst {
-    pos: usize,
     tok_cmp: TokenAst,
     tok_variadic: TokenAst,
     name: TypeAst,
@@ -13,28 +12,14 @@ pub struct GenericParameterCompVariadicAst {
 }
 
 impl GenericParameterCompVariadicAst {
-    pub fn new(
-        pos: usize,
-        tok_cmp: TokenAst,
-        tok_variadic: TokenAst,
-        name: TypeAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            tok_cmp,
-            tok_variadic,
-            name,
-            tok_colon,
-            type_,
-        }
+    pub fn new(tok_cmp: TokenAst, tok_variadic: TokenAst, name: TypeAst, tok_colon: TokenAst, type_: TypeAst) -> Self {
+        Self { tok_cmp, tok_variadic, name, tok_colon, type_ }
     }
 }
 
 impl Ast for GenericParameterCompVariadicAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_cmp.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

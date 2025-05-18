@@ -3,19 +3,18 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug)]
 pub struct LiteralStringAst {
-    pos: usize,
     value: TokenAst,
 }
 
 impl LiteralStringAst {
-    pub fn new(pos: usize, value: TokenAst) -> Self {
-        Self { pos, value }
+    pub fn new(value: TokenAst) -> Self {
+        Self { value }
     }
 }
 
 impl Ast for LiteralStringAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.value.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

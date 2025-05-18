@@ -3,19 +3,18 @@ use crate::spp::asts::expression_ast::ExpressionAst;
 
 #[derive(Clone, Debug)]
 pub struct GenericArgumentCompUnnamedAst {
-    pos: usize,
     value: ExpressionAst,
 }
 
 impl GenericArgumentCompUnnamedAst {
-    pub fn new(pos: usize, value: ExpressionAst) -> Self {
-        Self { pos, value }
+    pub fn new(value: ExpressionAst) -> Self {
+        Self { value }
     }
 }
 
 impl Ast for GenericArgumentCompUnnamedAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.value.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

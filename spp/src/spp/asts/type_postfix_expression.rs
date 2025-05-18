@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use crate::spp::analyse::scopes::scope::Scope;
 use crate::spp::asts::ast::Ast;
 use crate::spp::asts::convention_ast::ConventionAst;
 use crate::spp::asts::generic_argument_ast::GenericArgumentAst;
@@ -12,20 +9,19 @@ use crate::spp::asts::type_postfix_expression_operator_ast::TypePostfixExpressio
 
 #[derive(Clone, Debug)]
 pub struct TypePostfixExpressionAst {
-    pub pos: usize,
     pub lhs: Box<TypeAst>,
     pub op: TypePostfixExpressionOperatorAst,
 }
 
 impl TypePostfixExpressionAst {
-    pub fn new(pos: usize, lhs: Box<TypeAst>, op: TypePostfixExpressionOperatorAst) -> Self {
-        Self { pos, lhs, op }
+    pub fn new(lhs: Box<TypeAst>, op: TypePostfixExpressionOperatorAst) -> Self {
+        Self { lhs, op }
     }
 }
 
 impl Ast for TypePostfixExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.lhs.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
@@ -55,14 +51,6 @@ impl AbstractTypeAst for TypePostfixExpressionAst {
     }
 
     fn contains_generic(&self, generic_parameter_name: &TypeAst) -> bool {
-        todo!()
-    }
-
-    fn symbolic_eq(&self, that: &TypeAst, self_scope: &Scope, that_scope: &Scope, check_variant: bool) -> bool {
-        todo!()
-    }
-
-    fn split_to_scope_and_type(&self, scope: &Scope) -> (Rc<RefCell<Scope>>, TypeAst) {
         todo!()
     }
 

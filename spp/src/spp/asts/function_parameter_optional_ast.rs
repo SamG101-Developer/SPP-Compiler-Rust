@@ -6,37 +6,22 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct FunctionParameterOptionalAst {
-    pos: usize,
-    variable: LocalVariableAst,
-    tok_colon: TokenAst,
-    type_: TypeAst,
-    tok_assign: TokenAst,
-    value: ExpressionAst,
+    pub variable: LocalVariableAst,
+    pub tok_colon: TokenAst,
+    pub type_: TypeAst,
+    pub tok_assign: TokenAst,
+    pub value: ExpressionAst,
 }
 
 impl FunctionParameterOptionalAst {
-    pub fn new(
-        pos: usize,
-        variable: LocalVariableAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-        tok_assign: TokenAst,
-        value: ExpressionAst,
-    ) -> Self {
-        Self {
-            pos,
-            variable,
-            tok_colon,
-            type_,
-            tok_assign,
-            value,
-        }
+    pub fn new(variable: LocalVariableAst, tok_colon: TokenAst, type_: TypeAst, tok_assign: TokenAst, value: ExpressionAst) -> Self {
+        Self { variable, tok_colon, type_, tok_assign, value }
     }
 }
 
 impl Ast for FunctionParameterOptionalAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.variable.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

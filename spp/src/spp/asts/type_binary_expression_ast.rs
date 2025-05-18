@@ -4,26 +4,20 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct TypeBinaryExpressionAst {
-    pub(crate) pos: usize,
-    pub(crate) left: Box<TypeAst>,
-    pub(crate) op: TokenAst,
-    pub(crate) right: Box<TypeAst>,
+    pub left: Box<TypeAst>,
+    pub op: TokenAst,
+    pub right: Box<TypeAst>,
 }
 
 impl TypeBinaryExpressionAst {
-    pub fn new(pos: usize, left: Box<TypeAst>, op: TokenAst, right: Box<TypeAst>) -> Self {
-        Self {
-            pos,
-            left,
-            op,
-            right,
-        }
+    pub fn new(left: Box<TypeAst>, op: TokenAst, right: Box<TypeAst>) -> Self {
+        Self { left, op, right }
     }
 }
 
 impl Ast for TypeBinaryExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.left.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

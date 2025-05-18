@@ -5,31 +5,20 @@ use crate::spp::asts::type_ast::TypeAst;
 
 #[derive(Clone, Debug)]
 pub struct FunctionParameterRequiredAst {
-    pos: usize,
-    variable: LocalVariableAst,
-    tok_colon: TokenAst,
-    type_: TypeAst,
+    pub variable: LocalVariableAst,
+    pub tok_colon: TokenAst,
+    pub type_: TypeAst,
 }
 
 impl FunctionParameterRequiredAst {
-    pub fn new(
-        pos: usize,
-        variable: LocalVariableAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-    ) -> Self {
-        Self {
-            pos,
-            variable,
-            tok_colon,
-            type_,
-        }
+    pub fn new(variable: LocalVariableAst, tok_colon: TokenAst, type_: TypeAst) -> Self {
+        Self { variable, tok_colon, type_ }
     }
 }
 
 impl Ast for FunctionParameterRequiredAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.variable.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {

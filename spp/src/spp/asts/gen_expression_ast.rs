@@ -5,7 +5,6 @@ use crate::spp::asts::token_ast::TokenAst;
 
 #[derive(Clone, Debug, Default)]
 pub struct GenExpressionAst {
-    pub pos: usize,
     pub tok_gen: TokenAst,
     pub tok_with: Option<TokenAst>,
     pub convention: Option<ConventionAst>,
@@ -13,33 +12,17 @@ pub struct GenExpressionAst {
 }
 
 impl GenExpressionAst {
-    pub fn new(
-        pos: usize,
-        tok_gen: TokenAst,
-        tok_with: Option<TokenAst>,
-        convention: Option<ConventionAst>,
-        expression: Option<Box<ExpressionAst>>,
-    ) -> Self {
-        Self {
-            pos,
-            tok_gen,
-            tok_with,
-            convention,
-            expression,
-        }
+    pub fn new(tok_gen: TokenAst, tok_with: Option<TokenAst>, convention: Option<ConventionAst>, expression: Option<Box<ExpressionAst>>) -> Self {
+        Self { tok_gen, tok_with, convention, expression }
     }
 }
 
 impl Ast for GenExpressionAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.tok_gen.get_pos()
     }
 
     fn get_final_pos(&self) -> usize {
-        if let Some(expression) = &self.expression {
-            expression.get_final_pos()
-        } else {
-            self.tok_gen.get_final_pos()
-        }
+        self.expression.as_ref().map_or(self.tok_gen.get_final_pos(), |x| x.get_final_pos())
     }
 }

@@ -7,7 +7,6 @@ use crate::spp::asts::expression_ast::ExpressionAst;
 
 #[derive(Clone, Debug)]
 pub struct ClassAttributeAst {
-    pub pos: usize,
     pub annotations: Vec<AnnotationAst>,
     pub name: IdentifierAst,
     pub tok_colon: TokenAst,
@@ -16,28 +15,14 @@ pub struct ClassAttributeAst {
 }
 
 impl ClassAttributeAst {
-    pub fn new(
-        pos: usize,
-        annotations: Vec<AnnotationAst>,
-        name: IdentifierAst,
-        tok_colon: TokenAst,
-        type_: TypeAst,
-        default: Option<ExpressionAst>,
-    ) -> Self {
-        Self {
-            pos,
-            annotations,
-            name,
-            tok_colon,
-            type_,
-            default,
-        }
+    pub fn new(annotations: Vec<AnnotationAst>, name: IdentifierAst, tok_colon: TokenAst, type_: TypeAst, default: Option<ExpressionAst>) -> Self {
+        Self { annotations, name, tok_colon, type_, default }
     }
 }
 
 impl Ast for ClassAttributeAst {
     fn get_pos(&self) -> usize {
-        self.pos
+        self.annotations.first().map_or(self.name.get_pos(), |a| a.get_pos())
     }
 
     fn get_final_pos(&self) -> usize {
